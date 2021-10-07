@@ -32,8 +32,8 @@ rule ga_counter:
     output:
         config['output_dir'] + get_read_file_name() + "_ga.tsv"
     params:
-        cmd = 'python',
-        script = 'graph_counter.py'
+        cmd = "python",
+        script = config['scripts_dir'] + "graph_counter.py"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
