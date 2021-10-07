@@ -29,7 +29,6 @@ rule ga_align:
 rule ga_counter:
     input:
         gaf_input = config['output_dir'] + get_read_file_name() + ".gaf",
-        name = get_read_file_name()
     output:
         config['output_dir'] + get_read_file_name() + "_ga.tsv"
     params:
