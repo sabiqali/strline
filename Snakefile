@@ -1,24 +1,24 @@
 import os
 
-def get_file_name(file_path):
-    return os.path.basename(file_path).split('.')[0]
+def get_read_file_name():
+    return os.path.basename(config['reads_file']).split('.')[0]
 
-def get_file_path_wo_extension(file_path):
-    index = file_path.rfind(".")
-    return file_path[:index]
+def get_read_file_path_wo_extension():
+    index = config['reads_file'].rfind(".")
+    return config['reads_file'][:index]
 
 configfile: "config.yaml"
 
 rule all:
     input:
-        config['output_dir'] + get_file_name(config['reads_file']) + "_ga.tsv"
+        config['output_dir'] + get_read_file_name() + "_ga.tsv"
 
 rule ga_align:
     input:
         gfa_input = config['graph_input'],
         reads = config['reads_file']
     output:
-        config['output_dir'] + get_file_name(config['reads_file']) + ".gaf"
+        config['output_dir'] + get_read_file_name() + ".gaf"
     params:
         cmd = "GraphAligner",
         x = "vg"
@@ -28,8 +28,8 @@ rule ga_align:
 
 rule ga_counter:
     input:
-        gaf_input = config['output_dir'] + get_file_name(config['reads_file']) + ".gaf",
-        name = get_file_name(config['reads_file'])
+        gaf_input = config['output_dir'] + get_read_file_name() + ".gaf",
+        name = get_read_file_name()
     output:
         config['output_dir'] + get_file_name(config['reads_file']) + "_ga.tsv"
     params:
