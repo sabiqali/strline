@@ -36,4 +36,4 @@ rule ga_counter:
         script = 'graph_counter.py'
     conda: "ga.yaml"
     shell:
-        "{params.cmd} {params.script} --name {input.gaf_input} --name {input.name} > {output}"
+        "{params.cmd} {params.script} --name {input.gaf_input} > {output}"
