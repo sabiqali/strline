@@ -31,7 +31,7 @@ rule ga_counter:
         gaf_input = config['output_dir'] + get_read_file_name() + ".gaf",
         name = get_read_file_name()
     output:
-        config['output_dir'] + get_file_name(config['reads_file']) + "_ga.tsv"
+        config['output_dir'] + get_read_file_name() + "_ga.tsv"
     params:
         cmd = 'python',
         script = 'graph_counter.py'
