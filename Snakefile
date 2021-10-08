@@ -11,14 +11,14 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        config['output_dir'] + get_read_file_name() + "_ga.tsv"
+        expand("{sample}.ga.tsv", sample=config['samples']")
 
 rule ga_align:
     input:
-        gfa_input = config['graph_input'],
-        reads = config['reads_file']
+        gfa_input = {sample}.reference.gfa,
+        reads = {sample}.fastq
     output:
-        config['output_dir'] + get_read_file_name() + ".gaf"
+        graphaligner/{sample}.gaf
     params:
         cmd = "GraphAligner",
         x = "vg"
@@ -28,9 +28,9 @@ rule ga_align:
 
 rule ga_counter:
     input:
-        gaf_input = config['output_dir'] + get_read_file_name() + ".gaf",
+        gaf_input = graphaligner/{sample}.gaf
     output:
-        config['output_dir'] + get_read_file_name() + "_ga.tsv"
+        {sample}.ga.tsv
     params:
         cmd = "python",
         script = config['scripts_dir'] + "graph_counter.py"
