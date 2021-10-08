@@ -13,7 +13,7 @@ def get_fastq_for_sample(wildcards):
 def get_config_for_sample(wildcards):
     return config[wildcards.sample]['config']
 
-def get_ref():
+def get_ref(wildcards):
     return config['reference']
 
 configfile: "config.yaml"
