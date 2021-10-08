@@ -68,9 +68,9 @@ rule ga_counter:
 
 rule strscore_count:
     input:
-        bam_file = get_bam_for_sample
-        reads_file = get_fastq_for_sample
-        ref_file = get_ref
+        bam_file = get_bam_for_sample,
+        reads_file = get_fastq_for_sample,
+        ref_file = get_ref,
         config_file = get_config_for_sample
     output:
         "{sample}.strscore.gaf"
