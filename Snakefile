@@ -73,7 +73,7 @@ rule strscore_count:
         ref_file = get_ref,
         config_file = get_config_for_sample
     output:
-        "{sample}.strscore.gaf"
+        "{sample}.strscore.tsv"
     params:
         cmd = "python",
         script = config['scripts_dir'] + "strscore_plasmids.py"
@@ -84,7 +84,7 @@ rule strscore_count:
 rule compile_reads:
     input:
         ga_out = "{sample}.ga.tsv",
-        strscore_out = "{sample}.strscore.gaf"
+        strscore_out = "{sample}.strscore.tsv"
     output:
         "{sample}.compiled.tsv"
     params:
