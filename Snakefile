@@ -16,6 +16,9 @@ def get_config_for_sample(wildcards):
 def get_bam_for_sample(wildcards):
     return config[wildcards.sample]['bam']
 
+def get_strscore_config_for_sample(wildcards):
+    return config[wildcards.sample]['strscore_config']
+
 def get_ref(wildcards):
     return config['reference']
 
@@ -71,7 +74,7 @@ rule strscore_count:
         bam_file = get_bam_for_sample,
         reads_file = get_fastq_for_sample,
         ref_file = get_ref,
-        config_file = get_config_for_sample
+        config_file = get_strscore_config_for_sample
     output:
         "{sample}.strscore.tsv"
     params:
