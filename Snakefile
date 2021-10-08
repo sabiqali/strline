@@ -61,7 +61,7 @@ rule ga_counter:
         "{sample}.ga.tsv"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "graph_counter.py"
+        script = config['scripts_dir'] + "parse_gaf.py"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
