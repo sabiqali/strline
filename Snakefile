@@ -13,14 +13,20 @@ def get_fastq_for_sample(wildcards):
 def get_config_for_sample(wildcards):
     return config[wildcards.sample]['config']
 
+def get_bam_for_sample(wildcards):
+    return config[wildcards.sample]['bam']
+
 def get_ref(wildcards):
     return config['reference']
+
+def get_output_dir(wildcards):
+    return config['output_dir']
 
 configfile: "config.yaml"
 
 rule all:
     input:
-        expand("{sample}.ga.tsv", sample=config['samples'])
+        expand("{sample}.compiled.tsv", sample=config['samples'])
 
 rule gfa_gen:
     input:
@@ -59,3 +65,31 @@ rule ga_counter:
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
+
+rule strscore_count:
+    input:
+        bam_file = get_bam_for_sample
+        reads_file = get_fastq_for_sample
+        ref_file = get_ref
+        config_file = get_config_for_sample
+    output:
+        "{sample}.strscore.gaf"
+    params:
+        cmd = "python",
+        script = config['scripts_dir'] + "strscore_plasmids.py"
+    conda: "ga.yaml"
+    shell:
+        "{params.cmd} {params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
+
+rule compile_reads:
+    input:
+        ga_out = "{sample}.ga.tsv",
+        strscore_out = "{sample}.strscore.gaf"
+    output:
+        "{sample}.compiled.tsv"
+    params:
+        cmd = "python",
+        script = config['scripts_dir'] + "merge_method_calls.py"
+    conda: "ga.yaml"
+    shell:
+        "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} > {output}"
