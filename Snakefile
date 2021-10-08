@@ -7,6 +7,9 @@ def get_read_file_path_wo_extension():
     index = config['reads_file'].rfind(".")
     return config['reads_file'][:index]
 
+def get_fastq_for_sample(wildcards):
+    return config[wildcards.sample]['fastq']
+
 configfile: "config.yaml"
 
 rule all:
@@ -16,7 +19,7 @@ rule all:
 rule ga_align:
     input:
         gfa_input = "{sample}.reference.gfa",
-        reads = "{sample}.fastq"
+        reads = get_fastq_for_sample
     output:
         "graphaligner/{sample}.gaf"
     params:
