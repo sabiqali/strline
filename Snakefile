@@ -100,23 +100,6 @@ rule strscore_merge:
     shell:
         "cat {input} | awk 'NR == 1 || $0 !~ /strand/' > {output}"
 
-rule strscore_count:
-    input:
-        bam_file = get_bam_for_sample,
-        reads_file = get_fastq_for_sample,
-        ref_file = get_ref,
-        config_file = get_strscore_config_for_sample
-    output:
-        "{sample}.strscore_old.tsv"
-    threads: 1
-    params:
-        cmd = "python",
-        script = config['scripts_dir'] + "strscore_plasmids.py",
-        memory_per_thread="1G"
-    conda: "ga.yaml"
-    shell:
-        "{params.cmd} {params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file} > {output}"
-
 rule compile_reads:
     input:
         ga_out = "{sample}.ga.tsv",
