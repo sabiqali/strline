@@ -13,9 +13,6 @@ def get_fastq_for_sample(wildcards):
 def get_config_for_sample(wildcards):
     return config[wildcards.sample]['config']
 
-def get_bam_for_sample(wildcards):
-    return config[wildcards.sample]['bam']
-
 def get_strscore_config_for_sample(wildcards):
     return config[wildcards.sample]['strscore_config']
 
@@ -42,7 +39,8 @@ rule gfa_gen:
         "{sample}.reference.gfa"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "genome_str_graph_generator.py"
+        script = config['scripts_dir'] + "genome_str_graph_generator.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell: 
         "{params.cmd} {params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
@@ -55,7 +53,8 @@ rule ga_align:
         "graphaligner/{sample}.gaf"
     params:
         cmd = "GraphAligner",
-        x = "vg"
+        x = "vg",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
@@ -67,25 +66,39 @@ rule ga_counter:
         "{sample}.ga.tsv"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "parse_gaf.py"
+        script = config['scripts_dir'] + "parse_gaf.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
 
-rule strscore_count:
+rule strscore_count_split:
     input:
-        bam_file = get_bam_for_sample,
-        reads_file = get_fastq_for_sample,
+        bam_file="splits/{sample}.split{splitID}.sorted.bam",
+        bai_file="splits/{sample}.split{splitID}.sorted.bam.bai",
+        reads_file="splits/{sample}.split{splitID}.fastq",
         ref_file = get_ref,
         config_file = get_strscore_config_for_sample
     output:
-        "{sample}.strscore.tsv"
+        "strscore/{sample}.split{splitID}_strscore.tsv"
+    threads: 8
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "strscore_plasmids.py"
-    conda: "ga.yaml"
+        script = config['scripts_dir'] + "strscore_plasmids.py",
+        memory_per_thread="2G"
     shell:
         "{params.cmd} {params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
+
+rule strscore_merge:
+    input:
+        dynamic("strscore/{sample}.split{splitID}_strscore.tsv")
+    output:
+        "{sample}.strscore.tsv"
+    threads: 1
+    params:
+        memory_per_thread="1G"
+    shell:
+        "cat {input} | awk 'NR == 1 || $0 !~ /strand/' > {output}"
 
 rule compile_reads:
     input:
@@ -94,9 +107,11 @@ rule compile_reads:
         strique_out = "{sample}.strique.tsv"
     output:
         "{sample}.compiled.tsv"
+    threads: 1
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "merge_method_calls.py"
+        script = config['scripts_dir'] + "merge_method_calls.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
@@ -126,14 +141,26 @@ rule subset_reads:
 
 rule map:
     input:
-        "{prefix}.fastq"
+        reads="{prefix}.fastq",
+        ref=get_ref
     output:
         "{prefix}.sorted.bam"
     threads: 8
     params:
         memory_per_thread="4G"
     shell:
-         "minimap2 -ax map-ont -t {threads} reference.fa {input} | samtools sort -T {wildcards.prefix} > {output}"
+         "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.prefix} > {output}"
+
+rule bam_index:
+    input:
+        "{prefix}.bam"
+    output:
+        "{prefix}.bam.bai"
+    threads: 1
+    params:
+        memory_per_thread="2G"
+    shell:
+         "samtools index {input}"
 
 rule strique:
     input:
@@ -148,7 +175,7 @@ rule strique:
     shell:
         "samtools view -F 4 {input.bam} | python3 {config[strique]} count {input.index} r9_4_450bps.model {input.config} --out {output} --t {threads}"
 
-rule merge_strique:
+rule strique_merge:
     input:
         dynamic("strique/{sample}.split{splitID}_strique.tsv")
     output:
