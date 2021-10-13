@@ -25,6 +25,9 @@ def get_ref(wildcards):
 def get_output_dir(wildcards):
     return config['output_dir']
 
+def get_strique_index_for_sample(wildcards):
+    return config[wildcards.sample]['strique_index']
+
 configfile: "config.yaml"
 
 rule all:
@@ -55,7 +58,7 @@ rule ga_align:
         x = "vg"
     conda: "ga.yaml"
     shell:
-        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x}"
+        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
 
 rule ga_counter:
     input:
@@ -87,7 +90,8 @@ rule strscore_count:
 rule compile_reads:
     input:
         ga_out = "{sample}.ga.tsv",
-        strscore_out = "{sample}.strscore.tsv"
+        strscore_out = "{sample}.strscore.tsv",
+        strique_out = "{sample}.strique.tsv"
     output:
         "{sample}.compiled.tsv"
     params:
@@ -95,7 +99,7 @@ rule compile_reads:
         script = config['scripts_dir'] + "merge_method_calls.py"
     conda: "ga.yaml"
     shell:
-        "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} > {output}"
+        "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
 
 rule split_index:
     input:
