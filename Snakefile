@@ -29,90 +29,11 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("{sample}.compiled.tsv", sample=config['samples'])
+        expand("{sample}.compiled_singletons_only.tsv", sample=config['samples'])
 
-rule gfa_gen:
-    input:
-        ref_file = get_ref,
-        config_file = get_config_for_sample
-    output:
-        "{sample}.reference.gfa"
-    params:
-        script = srcdir("scripts/genome_str_graph_generator.py"),
-        memory_per_thread="1G"
-    conda: "ga.yaml"
-    shell: 
-        "{params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
-
-rule ga_align:
-    input:
-        gfa_input = "{sample}.reference.gfa",
-        reads = get_fastq_for_sample
-    output:
-        "graphaligner/{sample}.gaf"
-    params:
-        cmd = "GraphAligner",
-        x = "vg",
-        memory_per_thread="1G"
-    conda: "ga.yaml"
-    shell:
-        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
-
-rule ga_counter:
-    input:
-        gaf_input = "graphaligner/{sample}.gaf"
-    output:
-        "{sample}.ga.tsv"
-    params:
-        cmd = "python",
-        script = srcdir("scripts/parse_gaf.py"),
-        memory_per_thread="1G"
-    conda: "ga.yaml"
-    shell:
-        "{params.script} --input {input.gaf_input} > {output}"
-
-rule strscore_count_split:
-    input:
-        bam_file="splits/{sample}.split{splitID}.sorted.bam",
-        bai_file="splits/{sample}.split{splitID}.sorted.bam.bai",
-        reads_file="splits/{sample}.split{splitID}.fastq",
-        ref_file = get_ref,
-        config_file = get_strscore_config_for_sample
-    output:
-        "strscore/{sample}.split{splitID}_strscore.tsv"
-    threads: 8
-    params:
-        script = srcdir("scripts/strscore_plasmids.py"),
-        memory_per_thread="2G"
-    shell:
-        "{params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
-
-rule strscore_merge:
-    input:
-        dynamic("strscore/{sample}.split{splitID}_strscore.tsv")
-    output:
-        "{sample}.strscore.tsv"
-    threads: 1
-    params:
-        memory_per_thread="1G"
-    shell:
-        "cat {input} | awk 'NR == 1 || $0 !~ /strand/' > {output}"
-
-rule compile_reads:
-    input:
-        ga_out = "{sample}.ga.tsv",
-        strscore_out = "{sample}.strscore.tsv",
-        strique_out = "{sample}.strique.tsv"
-    output:
-        "{sample}.compiled.tsv"
-    threads: 1
-    params:
-        script = srcdir("scripts/merge_method_calls.py"),
-        memory_per_thread="1G"
-    conda: "ga.yaml"
-    shell:
-        "{params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
-
+#
+# Helpers
+#
 rule split_index:
     input:
         strique_index = get_strique_index_for_sample
@@ -159,6 +80,82 @@ rule bam_index:
     shell:
          "samtools index {input}"
 
+#
+# GraphAligner
+#
+rule gfa_gen:
+    input:
+        ref_file = get_ref,
+        config_file = get_config_for_sample
+    output:
+        "{sample}.reference.gfa"
+    params:
+        script = srcdir("scripts/genome_str_graph_generator.py"),
+        memory_per_thread="1G"
+    conda: "ga.yaml"
+    shell: 
+        "{params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
+
+rule ga_align:
+    input:
+        gfa_input = "{sample}.reference.gfa",
+        reads = get_fastq_for_sample
+    output:
+        "graphaligner/{sample}.gaf"
+    params:
+        cmd = "GraphAligner",
+        x = "vg",
+        memory_per_thread="1G"
+    conda: "ga.yaml"
+    shell:
+        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
+
+rule ga_counter:
+    input:
+        gaf_input = "graphaligner/{sample}.gaf"
+    output:
+        "{sample}.ga.tsv"
+    params:
+        cmd = "python",
+        script = srcdir("scripts/parse_gaf.py"),
+        memory_per_thread="1G"
+    conda: "ga.yaml"
+    shell:
+        "{params.script} --input {input.gaf_input} > {output}"
+
+#
+# strscore
+#
+rule strscore_count_split:
+    input:
+        bam_file="splits/{sample}.split{splitID}.sorted.bam",
+        bai_file="splits/{sample}.split{splitID}.sorted.bam.bai",
+        reads_file="splits/{sample}.split{splitID}.fastq",
+        ref_file = get_ref,
+        config_file = get_strscore_config_for_sample
+    output:
+        "strscore/{sample}.split{splitID}_strscore.tsv"
+    threads: 8
+    params:
+        script = srcdir("scripts/strscore_plasmids.py"),
+        memory_per_thread="2G"
+    shell:
+        "{params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
+
+rule strscore_merge:
+    input:
+        dynamic("strscore/{sample}.split{splitID}_strscore.tsv")
+    output:
+        "{sample}.strscore.tsv"
+    threads: 1
+    params:
+        memory_per_thread="1G"
+    shell:
+        "cat {input} | awk 'NR == 1 || $0 !~ /strand/' > {output}"
+
+#
+# Strique
+#
 rule strique:
     input:
         bam="splits/{sample}.split{splitID}.sorted.bam",
@@ -182,3 +179,47 @@ rule strique_merge:
         memory_per_thread="1G"
     shell:
         "cat {input} | awk 'NR == 1 || $0 !~ /target/' > {output}"
+
+#
+# Merge/analysis
+#
+rule compile_results:
+    input:
+        ga_out = "{sample}.ga.tsv",
+        strscore_out = "{sample}.strscore.tsv",
+        strique_out = "{sample}.strique.tsv"
+    output:
+        "{sample}.compiled.tsv"
+    threads: 1
+    params:
+        script = srcdir("scripts/merge_method_calls.py"),
+        memory_per_thread="1G"
+    conda: "ga.yaml"
+    shell:
+        "{params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
+
+rule get_singletons:
+    input:
+        "{sample}.ga.tsv"
+    output:
+        "{sample}.ga_singletons.txt"
+    threads: 1
+    params:
+        memory_per_thread="1G"
+    shell:
+        """grep -v read_name {input} | cut -f1 | sort | uniq -c | awk "{{ if(\$1 == 1) {{ print \$2 }} }}" > {output}"""
+
+rule filter_results_singletons:
+    input:
+        all_results = "{sample}.compiled.tsv",
+        singleton_ids = "{sample}.ga_singletons.txt"
+    output:
+        "{sample}.compiled_singletons_only.tsv"
+    threads: 1
+    params:
+        memory_per_thread="1G"
+    shell:
+        """
+        head -1 {input.all_results} > {output}
+        grep -f {input.singleton_ids} {input.all_results} >> {output}
+        """

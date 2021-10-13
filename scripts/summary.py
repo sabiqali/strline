@@ -15,17 +15,22 @@ data = dict()
 with open(args.input) as f:
     reader = csv.DictReader(f, delimiter='\t')
     for row in reader:
+        cols = list(row.keys())[2:]
+
         if methods is None:
 
             # initialize
-            methods = list(row.keys())[2:]
-            for m in methods:
-                data[m] = list()
-        
-        for m in methods:
-            data[m].append(row[m])        
+            methods = list()
+            for m in cols:
+                data[m + "+"] = list()
+                data[m + "-"] = list()
+                methods.append(m + "+")
+                methods.append(m + "-")
+        for m in cols:
+            if row["strand"] != "?":
+                data[m + row["strand"]].append(row[m])        
 
-sys.stderr.write("method\tnum_reads\tnum_called\tnum_not_zero\tmean\tstdv\n")
+sys.stderr.write("method\tnum_called\tnum_not_zero\tmean\tstdv\n")
 for m in methods:
     called = [ int(x) for x in data[m] if x != "NA" ]
     non_zero = [ c for c in called if c > 0 ]
