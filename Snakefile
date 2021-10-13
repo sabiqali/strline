@@ -38,12 +38,11 @@ rule gfa_gen:
     output:
         "{sample}.reference.gfa"
     params:
-        cmd = "python",
-        script = config['scripts_dir'] + "genome_str_graph_generator.py",
+        script = srcdir("scripts/genome_str_graph_generator.py"),
         memory_per_thread="1G"
     conda: "ga.yaml"
     shell: 
-        "{params.cmd} {params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
+        "{params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
 
 rule ga_align:
     input:
@@ -66,11 +65,11 @@ rule ga_counter:
         "{sample}.ga.tsv"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "parse_gaf.py",
+        script = srcdir("scripts/parse_gaf.py"),
         memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
-        "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
+        "{params.script} --input {input.gaf_input} > {output}"
 
 rule strscore_count_split:
     input:
@@ -83,11 +82,10 @@ rule strscore_count_split:
         "strscore/{sample}.split{splitID}_strscore.tsv"
     threads: 8
     params:
-        cmd = "python",
-        script = config['scripts_dir'] + "strscore_plasmids.py",
+        script = srcdir("scripts/strscore_plasmids.py"),
         memory_per_thread="2G"
     shell:
-        "{params.cmd} {params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
+        "{params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
 
 rule strscore_merge:
     input:
@@ -109,12 +107,11 @@ rule compile_reads:
         "{sample}.compiled.tsv"
     threads: 1
     params:
-        cmd = "python",
-        script = config['scripts_dir'] + "merge_method_calls.py",
+        script = srcdir("scripts/merge_method_calls.py"),
         memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
-        "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
+        "{params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
 
 rule split_index:
     input:
