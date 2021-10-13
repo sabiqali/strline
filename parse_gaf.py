@@ -1,72 +1,37 @@
-#import matplotlib.pyplot as plt
-#import pandas as pd
+#! /usr/bin/env python
+
 import argparse
-#import seaborn as sns
-
-#import statistics
-#from statistics import mode
-
 import os
 
-#def get_file_name(file_path):
-#    return dir.rsplit('.', 1)[0].split('/')[-1]
-    #return os.path.basename(file_path).split('.')[0]
- 
-#def most_common(List):
-#    return(mode(List))
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--input', help='the input file which was generated from strview', required=True)
-#parser.add_argument('--name', help='the graph name', required=True)
-
+parser.add_argument('--input', help='the input file which was generated from graphaligner', required=True)
 args = parser.parse_args()
 
 input_file = open(args.input)
-#name = os.path.basename(args.input).split('.')[0]
+print("\t".join(["read_name","strand", "spanned", "count","align_score"]))
 
-#output_file_name = name+".png"
-print("\t".join(["read","count","strand","spanned","align_score"]))
+with open(args.input) as f:
+    for record in f:
+        fields = record.rstrip().split("\t")
+        read_id = fields[0].split(' ')[0] # remove FASTQ metadata that graphaligner emits
+        path_str = fields[5]
+        align_score = fields[13].split(":")[2]
+        path_dir = path_str[0]
+        segments = path_str.split(path_dir)
+        has_prefix = False
+        has_suffix = False
 
-outputs = list()
-for line in input_file:
-    outputs.append(line.rstrip().split()[0:21])
+        count = 0
+        for s in segments:
+            if s.find("prefix") >= 0:
+                has_prefix = True
+            if s.find("suffix") >= 0:
+                has_suffix = True
+            count += s.find("repeat") >= 0
 
-count_list=[]
-for line in outputs:
-    c = 0
-    s = 0            #for the spanned output
-    character = line[11].split(">")
-    if(len(character) == 1):
-        character = line[11].split("<")
-    for word in character:
-        split_into_words = word.split("_")
-        for individual_word in split_into_words:
-            if (individual_word == "repeat"):
-                c = c + 1
-            if (individual_word == "prefix"):
-                s = s + 1
-            if (individual_word == "suffix"):
-                s = s + 1
-    #if(c != 0):
-    #count_list.append(c)
-    if (s == 2):
-        spanned = 1
-    else:
-        spanned = 0
-    print("\t".join([line[0],str(c),line[10],str(spanned)]))
-    #print(character)
-
-#count_list.sort(reverse=True)
-#n, bins, patches = plt.hist(count_list)
-#n, bins, patches = plt.hist(count_list, bins='auto')
-#plt.xlabel('count')
-#plt.ylabel('number of reads')
-#plt.title('distribution')
-#plt.show()
-#plt.savefig(output_file_name)
-
-#print(count_list)
-#print("Mean %d"%(statistics.mean(count_list)))
-#print("Median %d"%(statistics.median(count_list)))
-#print("Mode %d"%(most_common(count_list)))
-#print("SD %d"%(statistics.stdev(count_list)))
+        valid = has_prefix and has_suffix
+        strand = fields[4]
+        assert(strand == "+")
+        if path_dir == "<":
+            strand = "-"
+        print("%s\t%s\t%d\t%d\t%s" % (read_id, strand, valid, count, align_score))
