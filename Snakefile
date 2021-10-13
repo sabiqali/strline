@@ -25,6 +25,9 @@ def get_output_dir(wildcards):
 def get_strique_index_for_sample(wildcards):
     return config[wildcards.sample]['strique_index']
 
+def get_graphaligner_mode_for_sample(wildcards):
+    return config[wildcards.sample]['graphaligner_mode']
+
 configfile: "config.yaml"
 
 rule all:
@@ -105,10 +108,11 @@ rule ga_align:
     params:
         cmd = "GraphAligner",
         x = "vg",
-        memory_per_thread="1G"
+        memory_per_thread="1G",
+        graphaligner_mode=get_graphaligner_mode_for_sample
     conda: "ga.yaml"
     shell:
-        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
+        "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} {params.graphaligner_mode}"
 
 rule ga_counter:
     input:
