@@ -42,7 +42,8 @@ rule gfa_gen:
         "{sample}.reference.gfa"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "genome_str_graph_generator.py"
+        script = config['scripts_dir'] + "genome_str_graph_generator.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell: 
         "{params.cmd} {params.script} --ref {input.ref_file} --config {input.config_file} > {output}"
@@ -55,7 +56,8 @@ rule ga_align:
         "graphaligner/{sample}.gaf"
     params:
         cmd = "GraphAligner",
-        x = "vg"
+        x = "vg",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} -g {input.gfa_input} -f {input.reads} -a {output} -x {params.x} --multiseed-DP 1"
@@ -67,7 +69,8 @@ rule ga_counter:
         "{sample}.ga.tsv"
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "parse_gaf.py"
+        script = config['scripts_dir'] + "parse_gaf.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --input {input.gaf_input} > {output}"
@@ -80,9 +83,11 @@ rule strscore_count:
         config_file = get_strscore_config_for_sample
     output:
         "{sample}.strscore.tsv"
+    threads: 1
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "strscore_plasmids.py"
+        script = config['scripts_dir'] + "strscore_plasmids.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --bam {input.bam_file} --read {input.reads_file} --ref {input.ref_file} --config {input.config_file}> {output}"
@@ -94,9 +99,11 @@ rule compile_reads:
         strique_out = "{sample}.strique.tsv"
     output:
         "{sample}.compiled.tsv"
+    threads: 1
     params:
         cmd = "python",
-        script = config['scripts_dir'] + "merge_method_calls.py"
+        script = config['scripts_dir'] + "merge_method_calls.py",
+        memory_per_thread="1G"
     conda: "ga.yaml"
     shell:
         "{params.cmd} {params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
