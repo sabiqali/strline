@@ -173,7 +173,7 @@ rule strique:
     params:
         memory_per_thread="2G"
     shell:
-        "samtools view -F 4 {input.bam} | python3 {config[strique]} count {input.index} r9_4_450bps.model {input.config} --out {output} --t {threads}"
+        "samtools view -F 4 {input.bam} | python3 {config[strique]} count {input.index} {config[strique_pore_model]} {input.config} --out {output} --t {threads}"
 
 rule strique_merge:
     input:
