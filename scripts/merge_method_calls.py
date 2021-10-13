@@ -64,7 +64,7 @@ else:
 read_set = set(all_reads)
 
 methods = list(data.keys())
-print("\t".join(["read_id"] + methods))
+print("\t".join(["read_id", "strand"] + methods))
 for read_id in all_reads:
     if read_id not in read_set:
         continue
