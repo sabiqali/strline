@@ -1,32 +1,25 @@
 import os
 
-def get_read_file_name():
-    return os.path.basename(config['reads_file']).split('.')[0]
-
-def get_read_file_path_wo_extension():
-    index = config['reads_file'].rfind(".")
-    return config['reads_file'][:index]
-
 def get_fastq_for_sample(wildcards):
     return config[wildcards.sample]['fastq']
 
-def get_config_for_sample(wildcards):
-    return config[wildcards.sample]['config']
+def get_data_type_config_for_sample(sample):
+    return config[config[sample]['data_type']]
+
+def get_ref_for_sample(wildcards):
+    return get_data_type_config_for_sample(wildcards.sample)['reference']
+
+def get_repeat_config_for_sample(wildcards):
+    return get_data_type_config_for_sample(wildcards.sample)['repeat_config']
 
 def get_strscore_config_for_sample(wildcards):
-    return config[wildcards.sample]['strscore_config']
-
-def get_ref(wildcards):
-    return config['reference']
-
-def get_output_dir(wildcards):
-    return config['output_dir']
+    return get_data_type_config_for_sample(wildcards.sample)['strscore_config']
 
 def get_strique_index_for_sample(wildcards):
-    return config[wildcards.sample]['strique_index']
+    return get_data_type_config_for_sample(wildcards.sample)['strique_index']
 
 def get_graphaligner_mode_for_sample(wildcards):
-    return config[wildcards.sample]['graphaligner_mode']
+    return get_data_type_config_for_sample(wildcards.sample)['graphaligner_mode']
 
 configfile: "config.yaml"
 
@@ -64,17 +57,17 @@ rule subset_reads:
     shell:
         "seqtk subseq {input.reads_file} {input.chunk} > {output}"
 
-rule map:
+rule map_split:
     input:
-        reads="{prefix}.fastq",
-        ref=get_ref
+        reads="splits/{sample}.split{splitID}.fastq",
+        ref=get_ref_for_sample
     output:
-        "{prefix}.sorted.bam"
+        "splits/{sample}.split{splitID}.sorted.bam",
     threads: 8
     params:
         memory_per_thread="4G"
     shell:
-         "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.prefix} > {output}"
+         "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample} > {output}"
 
 rule bam_index:
     input:
@@ -92,8 +85,8 @@ rule bam_index:
 #
 rule gfa_gen:
     input:
-        ref_file = get_ref,
-        config_file = get_config_for_sample
+        ref_file = get_ref_for_sample,
+        config_file = get_repeat_config_for_sample
     output:
         "{sample}.reference.gfa"
     params:
@@ -139,7 +132,7 @@ rule strscore_count_split:
         bam_file="splits/{sample}.split{splitID}.sorted.bam",
         bai_file="splits/{sample}.split{splitID}.sorted.bam.bai",
         reads_file="splits/{sample}.split{splitID}.fastq",
-        ref_file = get_ref,
+        ref_file = get_ref_for_sample,
         config_file = get_strscore_config_for_sample
     output:
         "strscore/{sample}.split{splitID}_strscore.tsv"
@@ -168,7 +161,7 @@ rule strique:
     input:
         bam="splits/{sample}.split{splitID}.sorted.bam",
         index=get_strique_index_for_sample,
-        config=get_config_for_sample
+        config=get_repeat_config_for_sample
     output:
         "strique/{sample}.split{splitID}_strique.tsv"
     threads: 8
