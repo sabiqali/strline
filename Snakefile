@@ -34,6 +34,10 @@ rule all:
     input:
         expand("{sample}.compiled_singletons_only.tsv", sample=config['samples'])
 
+rule plots:
+    input:
+        expand("{sample}.compiled_singletons_only_distributions.pdf", sample=config['samples'])
+
 #
 # Helpers
 #
@@ -227,3 +231,13 @@ rule filter_results_singletons:
         head -1 {input.all_results} > {output}
         grep -f {input.singleton_ids} {input.all_results} >> {output}
         """
+
+rule plot_distributions:
+    input:
+        "{sample}.compiled_singletons_only.tsv"
+    output:
+        "{sample}.compiled_singletons_only_distributions.pdf"
+    params:
+        script = srcdir("scripts/plot_str_distributions.R"),
+    shell:
+        "Rscript {params.script} --input {input} --output {output}"
