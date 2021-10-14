@@ -38,21 +38,17 @@ def load_strscore(filename):
     return out
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--strique', required=False)
-parser.add_argument('--strscore', required=False)
-parser.add_argument('--graphaligner', required=False)
 parser.add_argument('--read-ids', required=False)
-args = parser.parse_args()
+args, input_files = parser.parse_known_args()
 
 data = dict()
-if args.strique is not None:
-    data['strique'] = load_strique(args.strique)
-
-if args.graphaligner is not None:
-    data['graphaligner'] = load_graphaligner(args.graphaligner)
-
-if args.strscore is not None:
-    data['strscore'] = load_strscore(args.strscore)
+for f in input_files:
+    if  f.endswith(".ga.tsv"):
+        data['graphaligner'] = load_graphaligner(f)
+    elif f.endswith(".strique.tsv"):
+        data['strique'] = load_strique(f)
+    elif f.endswith(".strscore.tsv"):
+        data['strscore'] = load_strscor(f)
 
 all_reads = list()
 if args.read_ids is not None:

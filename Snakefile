@@ -21,6 +21,13 @@ def get_strique_index_for_sample(wildcards):
 def get_graphaligner_mode_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['graphaligner_mode']
 
+def get_methods_for_sample(wildcards):
+    return get_data_type_config_for_sample(wildcards.sample)['methods']
+
+def get_compile_input_for_sample(wildcards):
+    methods = get_data_type_config_for_sample(wildcards.sample)['methods']
+    return expand("{sample}.{method}.tsv", sample=wildcards.sample, method=methods)
+
 configfile: "config.yaml"
 
 rule all:
@@ -186,18 +193,16 @@ rule strique_merge:
 #
 rule compile_results:
     input:
-        ga_out = "{sample}.ga.tsv",
-        strscore_out = "{sample}.strscore.tsv",
-        strique_out = "{sample}.strique.tsv"
+        get_compile_input_for_sample
     output:
         "{sample}.compiled.tsv"
     threads: 1
     params:
         script = srcdir("scripts/merge_method_calls.py"),
-        memory_per_thread="1G"
+        memory_per_thread="1G",
     conda: "ga.yaml"
     shell:
-        "{params.script} --graphaligner {input.ga_out} --strscore {input.strscore_out} --strique {input.strique_out} > {output}"
+        "{params.script} {input} > {output}"
 
 rule get_singletons:
     input:
