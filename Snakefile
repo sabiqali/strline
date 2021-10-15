@@ -235,7 +235,9 @@ rule plot_distributions:
         "{sample}.compiled_singletons_only.tsv"
     output:
         "{sample}.compiled_singletons_only_distributions.pdf"
+    threads: 1
     params:
+        memory_per_thread="1G",
         script = srcdir("scripts/plot_str_distributions.R"),
     shell:
         "Rscript {params.script} --input {input} --output {output}"
