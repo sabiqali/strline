@@ -28,6 +28,9 @@ def get_compile_input_for_sample(wildcards):
     methods = get_data_type_config_for_sample(wildcards.sample)['methods']
     return expand("{sample}.{method}.tsv", sample=wildcards.sample, method=methods)
 
+def get_maximum_length_for_plot(wildcards):
+    return get_data_type_config_for_sample(wildcards.sample)['maximum_length_for_plot']
+
 configfile: "config.yaml"
 
 rule all:
@@ -239,5 +242,6 @@ rule plot_distributions:
     params:
         memory_per_thread="1G",
         script = srcdir("scripts/plot_str_distributions.R"),
+        max_length=get_maximum_length_for_plot
     shell:
-        "Rscript {params.script} --input {input} --output {output}"
+        "Rscript {params.script} --input {input} --output {output} --maximum-length {params.max_length}"
