@@ -13,7 +13,7 @@ reshaped <- data %>% tidyr::gather(method, count, strique, graphaligner, strscor
 p <- ggplot(reshaped, aes(count, fill=strand)) + 
   geom_histogram(binwidth=1, position="identity", alpha=0.5) + 
   xlim(0, args$maximum_length) +
-  theme_bw() + 
+  theme_bw(base_size=18) + 
   facet_grid(. ~ method, scales="free")
   
 ggsave(args$output, p, height=10, width=20)
