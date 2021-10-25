@@ -9,7 +9,7 @@ parser$add_argument("-m", "--maximum-length", type="integer", required=TRUE)
 args <- parser$parse_args()
 
 data <- read.table(args$input, header=T)
-reshaped <- data %>% tidyr::gather(method, count, strique, graphaligner, strscore)
+reshaped <- data %>% tidyr::gather(method, count, graphaligner, simplecount)
 p <- ggplot(reshaped, aes(count, fill=strand)) + 
   geom_histogram(binwidth=1, position="identity", alpha=0.5) + 
   xlim(0, args$maximum_length) +
