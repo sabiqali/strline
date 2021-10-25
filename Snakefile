@@ -1,7 +1,32 @@
 import os
 
 def get_fastq_for_sample(wildcards):
-    return config[wildcards.sample]['fastq']
+    return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + ".fastq"
+
+def get_raw_file_input_path(wildcards):
+    return config['fast5']
+
+def get_fast5_path(wildcards):
+    return config[wildcards.data_type]['fast5']
+
+def get_guppy_basecaller(wildcards):
+    return config[wildcards.basecall_config]['path'] + "/guppy_basecaller"
+
+def get_guppy_barcoder(wildcards):
+    return config[wildcards.basecall_config]['path'] + "/guppy_barcoder"
+
+def get_barcoding_kit(wildcards):
+    return config[wildcards.data_type]['barcoding_kit']
+
+def get_guppy_mode(wildcards):
+    return config[wildcards.basecall_config]['mode']
+
+def get_basecall_path_for_sample(wildcards):
+    dt = config[wildcards.sample]['data_type']
+    bc = config[wildcards.sample]['barcode']
+    p = "barcoded." + wildcards.basecall_config + "." + dt + "/barcode" + bc 
+    print(p)
+    return p
 
 def get_data_type_config_for_sample(sample):
     return config[config[sample]['data_type']]
@@ -35,7 +60,7 @@ configfile: "config.yaml"
 
 rule all:
     input:
-        expand("{sample}.compiled_singletons_only.tsv", sample=config['samples'])
+        expand("{sample}.{basecall_config}.compiled_singletons_only.tsv", sample=config['samples'], basecall_config=config['basecall_configs'])
 
 rule plots:
     input:
@@ -89,7 +114,48 @@ rule bam_index:
         memory_per_thread="2G"
     shell:
          "samtools index {input}"
+#
+# Basecaller
+#
+rule basecall_reads:
+	input:
+		fast5 = get_fast5_path
+	output:
+		directory("basecalled.{basecall_config}.{data_type}")
+	threads: 8
+	params:
+		mode=get_guppy_mode,
+		guppy_location=get_guppy_basecaller,
+		memory_per_thread="8G",
+		gpu_options="-q gpu.q -l gpu=2"
+	shell:
+		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg -x 'cuda:0 cuda:1'" 
 
+rule demux_reads:
+	input:
+		"basecalled.{basecall_config}.{data_type}"
+	output:
+		dynamic(directory("barcoded.{basecall_config}.{data_type}/barcode{barcodeID}"))
+	threads: 8
+	params:
+		guppy_location=get_guppy_barcoder,
+		barcoding_kit=get_barcoding_kit,
+		memory_per_thread="1G",
+		gpu_options="-q gpu.q -l gpu=2"
+	shell:
+		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type}"
+
+rule merge_reads:
+    input:
+        path=get_basecall_path_for_sample
+    output:
+        "fastq/{sample}.{basecall_config}.fastq"
+    threads: 1
+    params:
+        memory_per_thread="1G"
+    shell:
+        "find {input.path} -name \"*.fastq\" -exec cat {{}} + > {output}"
+    
 #
 # GraphAligner
 #
