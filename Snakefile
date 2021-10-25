@@ -192,6 +192,21 @@ rule strique_merge:
         "cat {input} | awk 'NR == 1 || $0 !~ /target/' > {output}"
 
 #
+# simplecount
+#
+rule simplecount:
+    input:
+        reads=get_fastq_for_sample,
+        config=get_repeat_config_for_sample
+    output:
+        "{sample}.simplecount.tsv"
+    params:
+        script = srcdir("scripts/simple_count.py"),
+        memory_per_thread="1G"
+    shell:
+        "{params.script} --config {input.config} {input.reads} > {output}"
+
+#
 # Merge/analysis
 #
 rule compile_results:

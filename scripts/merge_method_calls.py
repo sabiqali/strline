@@ -49,6 +49,8 @@ for f in input_files:
         data['strique'] = load_strique(f)
     elif f.endswith(".strscore.tsv"):
         data['strscore'] = load_strscore(f)
+    elif f.endswith(".simplecount.tsv"):
+        data['simplecount'] = load_strscore(f) # uses the same format
 
 all_reads = list()
 if args.read_ids is not None:
