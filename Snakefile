@@ -21,6 +21,9 @@ def get_barcoding_kit(wildcards):
 def get_guppy_mode(wildcards):
     return config[wildcards.basecall_config]['mode']
 
+def get_guppy_extra_opt(wildcards):
+    return config[wildcards.basecall_config]['guppy_extra']
+
 def get_demux_dir_for_sample(wildcards):
     dt = config[wildcards.sample]['data_type']
     p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
@@ -131,10 +134,11 @@ rule basecall_reads:
 	params:
 		mode=get_guppy_mode,
 		guppy_location=get_guppy_basecaller,
+		guppy_extra_opt=get_guppy_extra_opt,
 		memory_per_thread="8G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg -x 'cuda:0 cuda:1'" 
+		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
 
 rule demux_reads:
 	input:
@@ -146,7 +150,7 @@ rule demux_reads:
 		guppy_location=get_guppy_barcoder,
 		barcoding_kit=get_barcoding_kit,
 		memory_per_thread="1G",
-		extra_cluster_opt="-q gpu.q -l gpu=2"
+		extra_cluster_opt=""
 	shell:
 		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type}"
 
@@ -172,9 +176,10 @@ rule gfa_gen:
         config_file = get_repeat_config_for_sample
     output:
         "{sample}.reference.gfa"
+    threads: 1
     params:
         script = srcdir("scripts/genome_str_graph_generator.py"),
-        memory_per_thread="1G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     conda: "ga.yaml"
     shell: 
@@ -186,10 +191,11 @@ rule ga_align:
         reads = get_fastq_for_sample
     output:
         "graphaligner/{sample}.{basecall_config}.gaf"
+    threads: 1
     params:
         cmd = "GraphAligner",
         x = "vg",
-        memory_per_thread="1G",
+        memory_per_thread="256G",
         extra_cluster_opt="",
         graphaligner_mode=get_graphaligner_mode_for_sample
     conda: "ga.yaml"
@@ -345,3 +351,17 @@ rule plot_distributions:
         max_length=get_maximum_length_for_plot
     shell:
         "Rscript {params.script} --input {input} --output {output} --maximum-length {params.max_length}"
+
+rule plot_distributions_by_basecaller:
+    input:
+        expand("{{sample}}.{basecall_config}.compiled_singletons_only.tsv", basecall_config=config['basecall_configs'])
+    output:
+        "{sample}.compiled_singletons_only_distributions_by_basecaller.pdf"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt="",
+        script = srcdir("scripts/plot_str_distributions_by_basecaller.R"),
+        max_length=get_maximum_length_for_plot
+    shell:
+        "Rscript {params.script} --output {output} --maximum-length {params.max_length} {input}"
