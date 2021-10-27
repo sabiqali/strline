@@ -21,10 +21,31 @@ def get_barcoding_kit(wildcards):
 def get_guppy_mode(wildcards):
     return config[wildcards.basecall_config]['mode']
 
-def get_demux_dir_for_sample(wildcards):
+def get_guppy_extra_opt(wildcards):
+    return config[wildcards.basecall_config]['guppy_extra']
+
+#
+# to support both singleplex and multiplex experiments this needs to be split
+# into a function that gets the root dir, and one that gets the subdir to make
+# snakemake happy and only run demultiplexing once.
+#
+def get_basecalled_root_dir_for_sample(wildcards):
     dt = config[wildcards.sample]['data_type']
-    p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
+    bk = config[dt]['barcoding_kit']
+    # if barcoding is not enabled, merged all fastqs in the basecalled directory
+    if bk == "none":
+        p = "basecalled." + wildcards.basecall_config + "." + dt + "/"
+    else:
+        # barcoding enabled
+        p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
     return p
+
+def get_basecalled_subdir_for_sample(wildcards):
+    bc = get_barcode_id_for_sample(wildcards)
+    if bc == "none":
+        return ""
+    else:
+        return "barcode" + bc
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -65,7 +86,7 @@ rule all:
 
 rule plots:
     input:
-        expand("{sample}.{basecall_config}.compiled_singletons_only_distributions.pdf", sample=config['samples'], basecall_config=config['basecall_configs'])
+        expand("{sample}.compiled_singletons_only_distributions_by_basecaller.pdf", sample=config['samples'])
 
 #
 # Helpers
@@ -131,10 +152,11 @@ rule basecall_reads:
 	params:
 		mode=get_guppy_mode,
 		guppy_location=get_guppy_basecaller,
+		guppy_extra_opt=get_guppy_extra_opt,
 		memory_per_thread="8G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg -x 'cuda:0 cuda:1'" 
+		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
 
 rule demux_reads:
 	input:
@@ -148,20 +170,20 @@ rule demux_reads:
 		memory_per_thread="1G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type}"
+		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type} -x 'cuda:0 cuda:1'"
 
 rule merge_reads:
     input:
-        dir=get_demux_dir_for_sample
+        dir=get_basecalled_root_dir_for_sample
     output:
         "fastq/{sample}.{basecall_config}.fastq"
     threads: 1
     params:
         memory_per_thread="1G",
         extra_cluster_opt="",
-        bc=get_barcode_id_for_sample
+        subdir = get_basecalled_subdir_for_sample
     shell:
-        "find {input.dir}/barcode{params.bc} -name \"*.fastq\" -exec cat {{}} + > {output}"
+        "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
     
 #
 # GraphAligner
@@ -172,9 +194,10 @@ rule gfa_gen:
         config_file = get_repeat_config_for_sample
     output:
         "{sample}.reference.gfa"
+    threads: 1
     params:
         script = srcdir("scripts/genome_str_graph_generator.py"),
-        memory_per_thread="1G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     conda: "ga.yaml"
     shell: 
@@ -186,10 +209,11 @@ rule ga_align:
         reads = get_fastq_for_sample
     output:
         "graphaligner/{sample}.{basecall_config}.gaf"
+    threads: 1
     params:
         cmd = "GraphAligner",
         x = "vg",
-        memory_per_thread="1G",
+        memory_per_thread="256G",
         extra_cluster_opt="",
         graphaligner_mode=get_graphaligner_mode_for_sample
     conda: "ga.yaml"
@@ -345,3 +369,17 @@ rule plot_distributions:
         max_length=get_maximum_length_for_plot
     shell:
         "Rscript {params.script} --input {input} --output {output} --maximum-length {params.max_length}"
+
+rule plot_distributions_by_basecaller:
+    input:
+        expand("{{sample}}.{basecall_config}.compiled_singletons_only.tsv", basecall_config=config['basecall_configs'])
+    output:
+        "{sample}.compiled_singletons_only_distributions_by_basecaller.pdf"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt="",
+        script = srcdir("scripts/plot_str_distributions_by_basecaller.R"),
+        max_length=get_maximum_length_for_plot
+    shell:
+        "Rscript {params.script} --output {output} --maximum-length {params.max_length} {input}"
