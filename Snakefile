@@ -86,7 +86,7 @@ rule all:
 
 rule plots:
     input:
-        expand("{sample}.compiled_singletons_only_distributions.pdf", sample=config['samples'])
+        expand("{sample}.compiled_singletons_only_distributions_by_basecaller.pdf", sample=config['samples'])
 
 #
 # Helpers
