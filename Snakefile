@@ -24,10 +24,28 @@ def get_guppy_mode(wildcards):
 def get_guppy_extra_opt(wildcards):
     return config[wildcards.basecall_config]['guppy_extra']
 
-def get_demux_dir_for_sample(wildcards):
+#
+# to support both singleplex and multiplex experiments this needs to be split
+# into a function that gets the root dir, and one that gets the subdir to make
+# snakemake happy and only run demultiplexing once.
+#
+def get_basecalled_root_dir_for_sample(wildcards):
     dt = config[wildcards.sample]['data_type']
-    p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
+    bk = config[dt]['barcoding_kit']
+    # if barcoding is not enabled, merged all fastqs in the basecalled directory
+    if bk == "none":
+        p = "basecalled." + wildcards.basecall_config + "." + dt + "/"
+    else:
+        # barcoding enabled
+        p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
     return p
+
+def get_basecalled_subdir_for_sample(wildcards):
+    bc = get_barcode_id_for_sample(wildcards)
+    if bc == "none":
+        return ""
+    else:
+        return "barcode" + bc
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -150,22 +168,22 @@ rule demux_reads:
 		guppy_location=get_guppy_barcoder,
 		barcoding_kit=get_barcoding_kit,
 		memory_per_thread="1G",
-		extra_cluster_opt=""
+		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type}"
+		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type} -x 'cuda:0 cuda:1'"
 
 rule merge_reads:
     input:
-        dir=get_demux_dir_for_sample
+        dir=get_basecalled_root_dir_for_sample
     output:
         "fastq/{sample}.{basecall_config}.fastq"
     threads: 1
     params:
         memory_per_thread="1G",
         extra_cluster_opt="",
-        bc=get_barcode_id_for_sample
+        subdir = get_basecalled_subdir_for_sample
     shell:
-        "find {input.dir}/barcode{params.bc} -name \"*.fastq\" -exec cat {{}} + > {output}"
+        "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
     
 #
 # GraphAligner
