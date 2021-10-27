@@ -330,9 +330,9 @@ rule compile_results:
 
 rule get_singletons:
     input:
-        "{sample}.ga.tsv"
+        "{sample}.{basecall_config}.ga.tsv"
     output:
-        "{sample}.ga_singletons.txt"
+        "{sample}.{basecall_config}.ga_singletons.txt"
     threads: 1
     params:
         memory_per_thread="1G",
@@ -342,10 +342,10 @@ rule get_singletons:
 
 rule filter_results_singletons:
     input:
-        all_results = "{sample}.compiled.tsv",
-        singleton_ids = "{sample}.ga_singletons.txt"
+        all_results = "{sample}.{basecall_config}.compiled.tsv",
+        singleton_ids = "{sample}.{basecall_config}.ga_singletons.txt"
     output:
-        "{sample}.compiled_singletons_only.tsv"
+        "{sample}.{basecall_config}.compiled_singletons_only.tsv"
     threads: 1
     params:
         memory_per_thread="1G",
@@ -358,9 +358,9 @@ rule filter_results_singletons:
 
 rule plot_distributions:
     input:
-        "{sample}.compiled_singletons_only.tsv"
+        "{sample}.{basecall_config}.compiled_singletons_only.tsv"
     output:
-        "{sample}.compiled_singletons_only_distributions.pdf"
+        "{sample}.{basecall_config}.compiled_singletons_only_distributions.pdf"
     threads: 1
     params:
         memory_per_thread="1G",
