@@ -9,6 +9,10 @@ def get_raw_file_input_path(wildcards):
 def get_fast5_path(wildcards):
     return config[wildcards.data_type]['fast5']
 
+def get_fast5_path_for_sample(wildcards):
+    dt = config[wildcards.sample]['data_type']
+    return config[dt]['fast5']
+
 def get_guppy_basecaller(wildcards):
     return config[wildcards.basecall_config]['path'] + "/guppy_basecaller"
 
@@ -24,6 +28,14 @@ def get_guppy_mode(wildcards):
 def get_guppy_extra_opt(wildcards):
     return config[wildcards.basecall_config]['guppy_extra']
 
+def get_basecalled_dir(wildcards):
+    dt = config[wildcards.sample]['data_type']
+    return "basecalled." + wildcards.basecall_config + "." + dt + "/"
+
+def get_barcoded_dir(wildcards):
+    dt = config[wildcards.sample]['data_type']
+    return "barcoded." + wildcards.basecall_config + "." + dt + "/"
+
 #
 # to support both singleplex and multiplex experiments this needs to be split
 # into a function that gets the root dir, and one that gets the subdir to make
@@ -34,10 +46,10 @@ def get_basecalled_root_dir_for_sample(wildcards):
     bk = config[dt]['barcoding_kit']
     # if barcoding is not enabled, merged all fastqs in the basecalled directory
     if bk == "none":
-        p = "basecalled." + wildcards.basecall_config + "." + dt + "/"
+        p = get_basecalled_dir(wildcards)
     else:
         # barcoding enabled
-        p = "barcoded." + wildcards.basecall_config + "." + dt + "/"
+        p = get_barcoded_dir(wildcards)
     return p
 
 def get_basecalled_subdir_for_sample(wildcards):
@@ -46,6 +58,9 @@ def get_basecalled_subdir_for_sample(wildcards):
         return ""
     else:
         return "barcode" + bc
+
+def get_sequencing_summary_for_sample(wildcards):
+    return get_basecalled_dir(wildcards) + "sequencing_summary.txt"
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -93,22 +108,22 @@ rule plots:
 #
 rule split_index:
     input:
-        strique_index = get_strique_index_for_sample
+        index = get_sequencing_summary_for_sample
     output:
-        dynamic("splits/{sample}.index.split{splitID}")
+        dynamic("splits/{sample}.{basecall_config}.index.split{splitID}")
     threads: 1
     params:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "cut -f2 {input.strique_index} | split -l {config[strique_reads_per_chunk]} - splits/{wildcards.sample}.index.split"
+        "cut -f2 {input.index} | grep -v read_id | split -l {config[reads_per_chunk]} - splits/{wildcards.sample}.{wildcards.basecall_config}.index.split"
 
 rule subset_reads:
     input:
-        chunk="splits/{sample}.index.split{splitID}",
+        chunk="splits/{sample}.{basecall_config}.index.split{splitID}",
         reads_file=get_fastq_for_sample
     output:
-        "splits/{sample}.split{splitID}.fastq"
+        "splits/{sample}.{basecall_config}.split{splitID}.fastq"
     threads: 1
     params:
         memory_per_thread="1G",
@@ -118,10 +133,10 @@ rule subset_reads:
 
 rule map_split:
     input:
-        reads="splits/{sample}.split{splitID}.fastq",
+        reads="splits/{sample}.{basecall_config}.split{splitID}.fastq",
         ref=get_ref_for_sample
     output:
-        "splits/{sample}.split{splitID}.sorted.bam",
+        "splits/{sample}.{basecall_config}.split{splitID}.sorted.bam",
     threads: 8
     params:
         memory_per_thread="4G",
@@ -147,7 +162,7 @@ rule basecall_reads:
 	input:
 		fast5 = get_fast5_path
 	output:
-		directory("basecalled.{basecall_config}.{data_type}")
+		dir="basecalled.{basecall_config}.{data_type}", ss="basecalled.{basecall_config}.{data_type}/sequencing_summary.txt"
 	threads: 8
 	params:
 		mode=get_guppy_mode,
@@ -156,7 +171,7 @@ rule basecall_reads:
 		memory_per_thread="8G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
+		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output.dir} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
 
 rule demux_reads:
 	input:
@@ -269,13 +284,26 @@ rule strscore_merge:
 #
 # Strique
 #
+rule strique_index:
+    input:
+        ss=get_sequencing_summary_for_sample,
+        fast5_dir=get_fast5_path_for_sample
+    output:
+        "strique/{sample}.{basecall_config}.index.fofn"
+    params:
+        memory_per_thread="2G",
+        extra_cluster_opt="",
+        script=srcdir("scripts/generate_strique_index.py")
+    shell:
+        "python {params.script} --fast5_dir {input.fast5_dir} --summary {input.ss} > {output}"
+
 rule strique:
     input:
-        bam="splits/{sample}.split{splitID}.sorted.bam",
-        index=get_strique_index_for_sample,
+        bam="splits/{sample}.{basecall_config}.split{splitID}.sorted.bam",
+        index="strique/{sample}.{basecall_config}.index.fofn",
         config=get_repeat_config_for_sample
     output:
-        "strique/{sample}.split{splitID}_strique.tsv"
+        "strique/{sample}.{basecall_config}.split{splitID}_strique.tsv"
     threads: 8
     params:
         memory_per_thread="2G",
@@ -285,9 +313,9 @@ rule strique:
 
 rule strique_merge:
     input:
-        dynamic("strique/{sample}.split{splitID}_strique.tsv")
+        dynamic("strique/{sample}.{basecall_config}.split{splitID}_strique.tsv")
     output:
-        "{sample}.strique.tsv"
+        "{sample}.{basecall_config}.strique.tsv"
     threads: 1
     params:
         memory_per_thread="1G",
@@ -372,9 +400,9 @@ rule plot_distributions:
 
 rule plot_distributions_by_basecaller:
     input:
-        expand("{{sample}}.{basecall_config}.compiled_singletons_only.tsv", basecall_config=config['basecall_configs'])
+        expand("{{sample}}.{basecall_config}.{{results_type}}.tsv", basecall_config=config['basecall_configs'])
     output:
-        "{sample}.compiled_singletons_only_distributions_by_basecaller.pdf"
+        "{sample}.{results_type}_distributions_by_basecaller.pdf"
     threads: 1
     params:
         memory_per_thread="1G",
