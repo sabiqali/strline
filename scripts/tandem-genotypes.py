@@ -1,0 +1,698 @@
+#! /usr/bin/env python
+# Copyright 2018 Martin C. Frith
+
+from __future__ import division, print_function
+
+import bisect
+import collections
+import functools
+import gzip
+import itertools
+import logging
+import math
+import optparse
+import signal
+import sys
+
+try:
+    from future_builtins import zip
+except ImportError:
+    pass
+
+def openFile(fileName):
+    logging.info("open file " + fileName)
+    if fileName == "-":
+        return sys.stdin
+    if fileName.endswith(".gz"):
+        return gzip.open(fileName, "rt")  # xxx dubious for Python2
+    return open(fileName)
+
+def isConsecutive(numbers):
+    for i, x in enumerate(numbers):
+        if i and x != numbers[i - 1] + 1:
+            return False
+    return True
+
+def maxRangeLength(ranges):
+    return max(i[2] - i[1] for i in ranges) if ranges else 0
+
+def overlappingRanges(queryRange, sortedRanges, maxSortedRangeLength):
+    chrom, beg, end = queryRange
+    i = bisect.bisect(sortedRanges, queryRange)
+    j = i
+    while j > 0:
+        j -= 1
+        chrom0, beg0, end0 = sortedRanges[j][:3]
+        if chrom0 < chrom or beg0 + maxSortedRangeLength <= beg:
+            break
+        if end0 > beg:
+            yield j
+    while i < len(sortedRanges):
+        chrom0, beg0, end0 = sortedRanges[i][:3]
+        if chrom0 > chrom or beg0 >= end:
+            break
+        yield i
+        i += 1
+
+def genePartScoresFromLines(lines):
+    for line in lines:
+        fields = line.split()
+        if fields:
+            yield fields[0], float(fields[1])
+
+def getInts(text):
+    for i in text.rstrip(",").split(","):
+        yield int(i)
+
+def genePartsFromLines(opts, lines):
+    utrs = "5'UTR", "3'UTR"
+    for line in lines:
+        fields = line.split()
+        if line[0] == "#" or not fields:
+            continue
+        if len(fields) < 6 or fields[5] in "+-":  # BED
+            chrom = fields[0]
+            chromBeg = int(fields[1])
+            chromEnd = int(fields[2])
+            geneName = fields[3] if len(fields) > 3 else "."
+            if len(fields) < 12:
+                yield chrom, chromBeg, chromEnd, geneName, "."
+                continue
+            strand = fields[5]
+            exonBegs = [chromBeg + i for i in getInts(fields[11])]
+            exonEnds = [i + j for i, j in zip(exonBegs, getInts(fields[10]))]
+        else:  # genePred
+            chrom = fields[2]
+            strand = fields[3]
+            exonBegs = list(getInts(fields[9]))
+            exonEnds = list(getInts(fields[10]))
+            if len(fields) > 12:
+                geneName = fields[12]
+            else:
+                geneName = fields[0]
+        cdsBeg = int(fields[6])
+        cdsEnd = int(fields[7])
+        if cdsBeg >= cdsEnd:
+            begUtr = endUtr = "exon"
+        elif strand == "-":
+            endUtr, begUtr = utrs
+        else:
+            begUtr, endUtr = utrs
+        if opts.promoter:
+            if strand == "-":
+                promBeg = exonEnds[-1]
+                promEnd = promBeg + opts.promoter
+            else:
+                promEnd = exonBegs[0]
+                promBeg = promEnd - opts.promoter  # might be negative
+            yield chrom, promBeg, promEnd, geneName, "promoter"
+        oldEnd = 0
+        for beg, end in zip(exonBegs, exonEnds):
+            if opts.select < 2 and oldEnd:
+                yield chrom, oldEnd, beg, geneName, "intron"
+            oldEnd = end
+            if beg < cdsBeg:
+                myEnd = min(end, cdsBeg)
+                yield chrom, beg, myEnd, geneName, begUtr
+            if end > cdsBeg and beg < cdsEnd:
+                myBeg = max(beg, cdsBeg)
+                myEnd = min(end, cdsEnd)
+                yield chrom, myBeg, myEnd, geneName, "coding"
+            if end > cdsEnd:
+                myBeg = max(beg, cdsEnd)
+                yield chrom, myBeg, end, geneName, endUtr
+
+def geneInfoFromParts(geneParts, partNums):
+    parts = [geneParts[i] for i in partNums]
+    if not parts:
+        return ".", "intergenic"
+    types = [i[4] for i in parts]
+    for t in ".", "coding", "5'UTR", "3'UTR", "exon", "promoter", "intron":
+        if t in types:
+            names = ",".join(sorted(set(i[3] for i in parts if i[4] == t)))
+            return names, t
+    assert False
+
+def tandemRepeatsFromLines(opts, lines, geneParts):
+    maxPartLength = maxRangeLength(geneParts)
+    for line in lines:
+        fields = line.split()
+        if not fields or fields[0][0] == "#":
+            continue
+        geneInfo = None
+        if len(fields) > 3 and len(fields) < 9:  # BED-like
+            if fields[3].isdigit() and len(fields) < 7:  # microsat.txt
+                fields.pop(0)
+            if fields[3].isdigit():  # tantan
+                unit = fields[5]
+            else:
+                unit = fields[3]
+                if "x" in unit:
+                    repeatCount, unit = unit.split("x")
+                if len(fields) > 4:
+                    genePartType = fields[5] if len(fields) > 5 else "."
+                    geneInfo = fields[4], genePartType
+            chrom = fields[0]
+            beg = int(fields[1])
+            end = int(fields[2])
+        elif len(fields) == 17 and fields[4] == "trf":  # simpleRepeat.txt
+            unit = fields[16]
+            if int(fields[5]) != len(unit) or int(fields[7]) != len(unit):
+                continue  # weird, maybe hard case: don't try it
+            chrom = fields[1]
+            beg = int(fields[2])
+            end = int(fields[3])
+        elif len(fields) == 17 and fields[11] == "Simple_repeat":  # rmsk.txt
+            unit = fields[10][1:-2]
+            chrom = fields[5]
+            beg = int(fields[6])
+            end = int(fields[7])
+        elif len(fields) == 15 and fields[10] == "Simple_repeat":  # RMSK .out
+            unit = fields[9][1:-2]
+            chrom = fields[4]
+            beg = int(fields[5]) - 1
+            end = int(fields[6])
+        else:
+            continue
+        if len(unit) < opts.min_unit:
+            continue
+        if opts.min_unit > 1 and len(set(unit)) == 1:  # idiot-proofing
+            continue
+        if not geneInfo:
+            if geneParts is None:
+                geneInfo = ".", "."
+            else:
+                r = chrom, beg, end
+                partNums = overlappingRanges(r, geneParts, maxPartLength)
+                geneInfo = geneInfoFromParts(geneParts, partNums)
+        if opts.select > 0 and geneInfo[1] == "intergenic":
+            continue
+        if opts.select > 1 and geneInfo[1] == "intron":
+            continue
+        yield chrom, beg, end, unit, geneInfo, []
+
+# Start of functions copied from last-postmask
+def complement(base):
+    x = "ACGTRYKMBDHV"
+    y = "TGCAYRMKVHDB"
+    i = x.find(base)
+    return y[i] if i >= 0 else base
+
+def fastScoreMatrix(rowHeads, colHeads, matrix, deleteCost, insertCost):
+    matrixLen = 128
+    defaultScore = min(map(min, matrix))
+    fastMatrix = [[defaultScore for i in range(matrixLen)]
+                  for j in range(matrixLen)]
+    for i, x in enumerate(rowHeads):
+        for j, y in enumerate(colHeads):
+            xu = ord(x.upper())
+            xl = ord(x.lower())
+            yu = ord(y.upper())
+            yl = ord(y.lower())
+            score = matrix[i][j]
+            maskScore = min(score, 0)
+            fastMatrix[xu][yu] = score
+            fastMatrix[xu][yl] = maskScore
+            fastMatrix[xl][yu] = maskScore
+            fastMatrix[xl][yl] = maskScore
+    for i in range(matrixLen):
+        fastMatrix[i][ord("-")] = -deleteCost
+        fastMatrix[ord("-")][i] = -insertCost
+    return fastMatrix
+
+def matrixPerStrand(rowHeads, colHeads, matrix, deleteCost, insertCost):
+    rowComps = [complement(i) for i in rowHeads]
+    colComps = [complement(i) for i in colHeads]
+    fwd = fastScoreMatrix(rowHeads, colHeads, matrix, deleteCost, insertCost)
+    rev = fastScoreMatrix(rowComps, colComps, matrix, deleteCost, insertCost)
+    return fwd, rev
+
+def isGoodAlignment(columns, scoreMatrix, delOpenCost, insOpenCost, minScore):
+    """Does the alignment have a segment with score >= minScore?"""
+    score = 0
+    xOld = yOld = " "
+    for x, y in columns:
+        score += scoreMatrix[ord(x)][ord(y)]
+        if score >= minScore:
+            return True
+        if x == "-" and xOld != "-":
+            score -= insOpenCost
+        if y == "-" and yOld != "-":
+            score -= delOpenCost
+        if score < 0:
+            score = 0
+        xOld = x
+        yOld = y
+    return False
+# End of functions copied from last-postmask
+
+def alignmentsFromMaf(opts, lines):
+    aDel = bDel = aIns = bIns = minScore = matrices = None
+    strandParam = 0
+    scoreMatrix = []
+    rowHeads = []
+    colHeads = []
+    for line in lines:
+        if line[0] == "#":
+            fields = line.split()
+            nf = len(fields)
+            if not colHeads:
+                for i in fields:
+                    if i.startswith("a="): aDel = int(i[2:])
+                    if i.startswith("b="): bDel = int(i[2:])
+                    if i.startswith("A="): aIns = int(i[2:])
+                    if i.startswith("B="): bIns = int(i[2:])
+                    if i.startswith("e="): minScore = int(i[2:])
+                    if i.startswith("S="): strandParam = int(i[2:])
+                if nf > 1 and max(map(len, fields)) == 1:
+                    colHeads = fields[1:]
+            elif nf == len(colHeads) + 2 and len(fields[1]) == 1:
+                rowHeads.append(fields[1])
+                scoreMatrix.append([int(i) for i in fields[2:]])
+        elif line[0] == "a":
+            alignment = []
+            mismap = 0.0
+            for i in line.split():
+                if i.startswith("mismap="):
+                    mismap = float(i[7:])
+        elif line[0] == "s":
+            fields = line.split()
+            seqName = fields[1]
+            beg = int(fields[2])
+            strand = fields[4]
+            seqLen = int(fields[5])
+            alignedSeq = fields[6]
+            end = beg + len(alignedSeq) - alignedSeq.count("-")
+            seqData = seqName, seqLen, strand, beg, end, alignedSeq
+            alignment.append(seqData)
+            if len(alignment) == 2:
+                if mismap <= opts.mismap:
+                    if opts.postmask:
+                        if not matrices:
+                            if None in (aDel, bDel, aIns, bIns, minScore):
+                                raise Exception("can't read alignment header, "
+                                                "needed for postmasking")
+                            matrices = matrixPerStrand(rowHeads, colHeads,
+                                                       scoreMatrix, bDel, bIns)
+                        cols = zip(alignment[0][5], alignment[1][5])
+                        strand = alignment[strandParam][2]
+                        m = matrices[strand == "-"]
+                        if not isGoodAlignment(cols, m, aDel, bDel, minScore):
+                            continue
+                    yield alignment
+
+def refSeqName(alignment):
+    return alignment[0][0]
+
+def refSeqLen(alignment):
+    return alignment[0][1]
+
+def refSeqBeg(alignment):
+    return alignment[0][3]
+
+def refSeqEnd(alignment):
+    return alignment[0][4]
+
+def qrySeqName(alignment):
+    return alignment[1][0]
+
+def qrySeqBeg(alignment):
+    return alignment[1][3]
+
+def qrySeqEnd(alignment):
+    return alignment[1][4]
+
+def qryFwdBeg(alignment):
+    q = alignment[1]
+    return q[3] if q[2] == "+" else q[1] - q[4]
+
+def isFwdColinear(oldAln, newAln):
+    """Is oldAln (not too far) upstream of newAln in all sequences?"""
+    maxGap = 1000000  # xxx ???
+    return all(i[4] <= j[3] and j[3] - i[4] <= maxGap
+               for i, j in zip(oldAln, newAln))
+
+def isFwd(colinearAlignments):
+    return isFwdColinear(colinearAlignments[0], colinearAlignments[1])
+
+def isColinear(colinearAlignments, newAln):
+    oldAln = colinearAlignments[-1]
+    if qryFwdBeg(oldAln) > qryFwdBeg(newAln):
+        # We could sort the alignments into the right order.  But
+        # wrong order is unexpected, and may indicate other problems.
+        raise Exception("the alignments are in the wrong order")
+    if any(i[:3] != j[:3] for i, j in zip(oldAln, newAln)):
+        return False
+    if len(colinearAlignments) == 1:
+        return isFwdColinear(oldAln, newAln) or isFwdColinear(newAln, oldAln)
+    if isFwd(colinearAlignments):
+        return isFwdColinear(oldAln, newAln)
+    else:
+        return isFwdColinear(newAln, oldAln)
+
+def canonicalize(colinearAlignments):
+    if len(colinearAlignments) > 1 and not isFwd(colinearAlignments):
+        colinearAlignments.reverse()
+
+def colinearAlignmentGroups(alignments):
+    colinearAlignments = []
+    for i in alignments:
+        if colinearAlignments and not isColinear(colinearAlignments, i):
+            canonicalize(colinearAlignments)
+            yield colinearAlignments
+            colinearAlignments = []
+        colinearAlignments.append(i)
+    if colinearAlignments:
+        canonicalize(colinearAlignments)
+        yield colinearAlignments
+
+def gapsFromColinearAlignments(alignments):
+    refSeqPos = refSeqBeg(alignments[0])
+    insSize = delSize = 0
+    isInterAlignment = False
+    for j, b in enumerate(alignments):
+        if j:
+            a = alignments[j - 1]
+            delSize += refSeqBeg(b) - refSeqEnd(a)
+            insSize += qrySeqBeg(b) - qrySeqEnd(a)
+            isInterAlignment = True
+        alignmentColumns = zip(b[0][5], b[1][5])
+        # use "read-ahead" technique, aiming to be as fast as possible:
+        for x, y in alignmentColumns: break
+        while True:
+            if x == "-":
+                insSize += 1
+                for x, y in alignmentColumns:
+                    if x != "-": break
+                    insSize += 1
+                else: break
+            elif y == "-":
+                delSize += 1
+                for x, y in alignmentColumns:
+                    if y != "-": break
+                    delSize += 1
+                else: break
+            else:
+                if insSize or delSize:
+                    yield (refSeqPos, refSeqPos + delSize, insSize - delSize,
+                           isInterAlignment)
+                    refSeqPos += delSize
+                    insSize = delSize = 0
+                    isInterAlignment = False
+                refSeqPos += 1
+                for x, y in alignmentColumns:
+                    if x == "-" or y == "-": break
+                    refSeqPos += 1
+                else: break
+
+def numberOfPeriods(gapLength, repeatPeriod):  # crude
+    if gapLength < 0:
+        return -numberOfPeriods(-gapLength, repeatPeriod)
+    return (gapLength + (repeatPeriod - 1) // 2) // repeatPeriod
+
+def doAppend(copyNumberChanges, strand, change, queryName):
+    t = strand, change, queryName
+    copyNumberChanges.append(t)
+
+def appendCopyNumberChange(opts, tandemRepeat, gaps, strand, queryName):
+    """Estimate copy number change from alignment gaps: crude and ad hoc"""
+    chrom, repBeg, repEnd, unit, geneInfo, copyNumberChanges = tandemRepeat
+    repLen = repEnd - repBeg
+    period = len(unit)
+    minAlignedFlank = max(opts.far, period)
+    maxAlnBeg = repBeg - minAlignedFlank
+    minAlnEnd = repEnd + minAlignedFlank
+    maxDistance = max(opts.near, period)
+    minGapEnd = repBeg - maxDistance
+    maxGapBeg = repEnd + maxDistance
+    diff = 0
+    for gapBeg, gapEnd, gapLen, isInterAlignment in gaps:
+        if gapEnd <= maxAlnBeg or gapBeg >= minAlnEnd:
+            continue
+        if gapEnd <= repBeg or gapBeg >= repEnd:
+            insSize = gapLen + (gapEnd - gapBeg)
+            if insSize <= period // 2:
+                # ignore deletions adjacent to the repeat
+                # also, ignore negligible insertions near the repeat
+                continue
+        if gapBeg <= maxAlnBeg or gapEnd >= minAlnEnd:
+            return  # a gap goes too far beyond the repeat: give up
+        if opts.mode == "S":
+            if isInterAlignment and gapLen > 0:
+                return  # suspicious, unexpected insertion: give up
+            if gapBeg <= repBeg and gapEnd >= repEnd:
+                return  # no alignment to the repeat: give up
+        if gapEnd < minGapEnd or gapBeg > maxGapBeg:
+            continue
+        overlap = min(gapEnd, repEnd) - max(gapBeg, repBeg)
+        overlap = max(overlap, 0)
+        myLen = max(gapLen, -overlap)  # don't count deletion beyond the repeat
+        diff += numberOfPeriods(myLen, period)
+    doAppend(copyNumberChanges, strand, diff, queryName)
+
+def joinedAlnNumsPerRepeat(repNumsPerJoinedAln, repNum):
+    for i, x in enumerate(repNumsPerJoinedAln):
+        if repNum in x:
+            yield i
+
+def alignedStrand(joinedAln):
+    return joinedAln[0][1][2]
+
+def doOneRepeat(opts, joinedAlns, gaps, rep, joinedAlnNums):
+    if not isConsecutive(joinedAlnNums):
+        return
+    myJoinedAlns = [joinedAlns[i] for i in joinedAlnNums]
+    strand = alignedStrand(myJoinedAlns[0])
+    if any(alignedStrand(i) != strand for i in myJoinedAlns):
+        return
+    if strand == "-":
+        myJoinedAlns.reverse()
+    joinedAlnA = myJoinedAlns[0]
+    joinedAlnZ = myJoinedAlns[-1]
+    alnBegA = refSeqBeg(joinedAlnA[0])
+    alnEndZ = refSeqEnd(joinedAlnZ[-1])
+    repBeg = rep[1]
+    repEnd = rep[2]
+    repLen = repEnd - repBeg
+    period = len(rep[3])
+    minAlignedFlank = max(opts.far, period)
+    refLen = refSeqLen(joinedAlnA[0])
+    maxAlnBeg = max(repBeg - minAlignedFlank, 0)
+    minAlnEnd = min(repEnd + minAlignedFlank, refLen)
+    if alnBegA > maxAlnBeg or alnEndZ < minAlnEnd:
+        return
+    queryName = qrySeqName(joinedAlnA[0])
+    if len(myJoinedAlns) == 1:
+        n = joinedAlnNums[0]
+        if not isinstance(gaps[n], list):
+            gaps[n] = list(gaps[n])
+        appendCopyNumberChange(opts, rep, gaps[n], strand, queryName)
+    else:
+        for i in myJoinedAlns[1:]:
+            b = refSeqBeg(i[0])
+            if b <= maxAlnBeg or alnBegA > max(b - minAlignedFlank, 0):
+                return
+        for i in myJoinedAlns[:-1]:
+            e = refSeqEnd(i[-1])
+            if e >= minAlnEnd or alnEndZ < min(e + minAlignedFlank, refLen):
+                return
+        tailAlnA = joinedAlnA[-1]
+        headAlnZ = joinedAlnZ[0]
+        insertionSize = (qrySeqBeg(headAlnZ) - qrySeqEnd(tailAlnA) +
+                         refSeqEnd(tailAlnA) - refSeqBeg(headAlnZ))
+        change = numberOfPeriods(insertionSize, len(rep[3]))
+        doAppend(rep[5], strand, change, queryName)
+
+def repeatNumsPerJoinedAln(tandemRepeats, maxRepeatLength, joinedAlns):
+    for joinedAln in joinedAlns:
+        headAln = joinedAln[0]
+        tailAln = joinedAln[-1]
+        n = refSeqName(headAln)
+        b = refSeqBeg(headAln)
+        e = refSeqEnd(tailAln)
+        r = n, b, e
+        s = set(overlappingRanges(r, tandemRepeats, maxRepeatLength))
+        if not s and not n.startswith("chr"):
+            r = "chr" + n, b, e
+            s = set(overlappingRanges(r, tandemRepeats, maxRepeatLength))
+        yield s
+
+def doOneQuerySequence(opts, tandemRepeats, maxRepeatLength, alignments):
+    joinedAlns = list(colinearAlignmentGroups(alignments))
+    g = repeatNumsPerJoinedAln(tandemRepeats, maxRepeatLength, joinedAlns)
+    repNumsPerJoinedAln = list(g)
+    gaps = [gapsFromColinearAlignments(i) for i in joinedAlns]
+    repNums = set(itertools.chain.from_iterable(repNumsPerJoinedAln))
+    for i in repNums:
+        rep = tandemRepeats[i]
+        joinedAlnNums = list(joinedAlnNumsPerRepeat(repNumsPerJoinedAln, i))
+        doOneRepeat(opts, joinedAlns, gaps, rep, joinedAlnNums)
+
+def doOneMafFile(opts, tandemRepeats, maxRepeatLength, lines):
+    alignments = alignmentsFromMaf(opts, lines)
+    for k, v in itertools.groupby(alignments, qrySeqName):
+        doOneQuerySequence(opts, tandemRepeats, maxRepeatLength, v)
+
+def tandemRepeatWithAlleles(tandemRepeat):
+    chrom, beg, end, unit, geneInfo, copyNumberChanges = tandemRepeat
+    changes = sorted(i[1] for i in copyNumberChanges)
+    numOfReads = len(changes)
+    allele1 = allele2 = "."
+    if numOfReads == 1:
+        allele1 = changes[0]
+    elif numOfReads > 1:
+        trim = int(math.sqrt(numOfReads) / 3)  # xxx ???
+        trimEnd = numOfReads - trim
+        trimmedChanges = changes[trim:trimEnd]
+        counts = collections.Counter(trimmedChanges)
+        uniqueTrimmedChanges = sorted(counts)
+        # k-medoids clustering with k=2:
+        distBest = sys.maxsize
+        for j, y in enumerate(uniqueTrimmedChanges):
+            for i in range(j + 1):
+                x = uniqueTrimmedChanges[i]
+                dist = sum(v * min(abs(k - x), abs(k - y))
+                           for k, v in counts.items())
+                if dist < distBest:
+                    distBest = dist
+                    allele1 = x
+                    allele2 = y
+    return chrom, beg, end, unit, geneInfo, allele1, allele2, copyNumberChanges
+
+def reverseComplement(seq):
+    return "".join(map(complement, reversed(seq)))
+
+def isRepeatedCodons(seq, codons):
+    r = range(0, len(seq), 3)
+    return all(seq[i:i+3] in codons for i in r)
+
+def isRepeatedCodonsInAnyFrame3(seq, codons):
+    return any(isRepeatedCodons(seq[i:] + seq[:i], codons) for i in range(3))
+
+def isRepeatedCodonsInAnyFrame6(seq, codons):
+    if isRepeatedCodonsInAnyFrame3(seq, codons):
+        return True
+    codons = [reverseComplement(i) for i in codons]
+    return isRepeatedCodonsInAnyFrame3(seq, codons)
+
+def isBadCodons(seq):
+    glnCodons = "CAA", "CAG"
+    alaCodons = "GCA", "GCC", "GCG", "GCT"
+    badCodonSets = glnCodons, alaCodons
+    return any(isRepeatedCodonsInAnyFrame6(seq, i) for i in badCodonSets)
+
+def priorityScore(partScores, numOfOutliers, tandemRepeat):
+    repeatLengthBoost = 30  # xxx ???
+    _, beg, end, unit, geneInfo, small, large, copyNumberChanges = tandemRepeat
+    scores = [len(copyNumberChanges)]
+    genePart = geneInfo[1]
+    geneScore = partScores.get(genePart, 1)
+    if genePart == "coding" and isBadCodons(unit):
+        geneScore *= 2
+    mul = geneScore * len(unit)
+    denom = (end - beg + repeatLengthBoost) * 1.0
+    c = sorted(i[1] for i in copyNumberChanges)
+    for i in range(numOfOutliers + 1):
+        scores.append(max(c[-1], -c[0]) * mul / denom if c else 0.0)
+        if c and c[-1] > 0:
+            c.pop()  # discard the most extreme expansion
+        if c and c[0] < 0:
+            c.pop(0)  # discard the most extreme contraction
+    scores.reverse()
+    return scores
+
+def oneChangeText(opts, change):
+    text = str(change[1])
+    if opts.verbose:
+        text += ":" + change[2]
+    return text
+
+def changeText(opts, copyNumberChanges):
+    t = ",".join(oneChangeText(opts, i) for i in sorted(copyNumberChanges))
+    return t if t else "."
+
+def tandemGenotypes(opts, args):
+    logLevel = logging.INFO if opts.verbose else logging.WARNING
+    logging.basicConfig(format="%(filename)s: %(message)s", level=logLevel)
+
+    partScores = {"coding": 50, "5'UTR": 20, "3'UTR": 20, "exon": 15,
+                  "promoter": 15, "intron": 5}
+    if opts.scores:
+        partScores.update(genePartScoresFromLines(openFile(opts.scores)))
+
+    geneParts = None
+    if opts.genes:
+        geneFile = openFile(opts.genes)
+        geneParts = sorted(genePartsFromLines(opts, geneFile))
+
+    repFile = openFile(args[0])
+    tandemRepeats = sorted(tandemRepeatsFromLines(opts, repFile, geneParts))
+    maxRepeatLength = maxRangeLength(tandemRepeats)
+
+    fileNames = args[1:] if len(args) > 1 else ["-"]
+    for i in fileNames:
+        doOneMafFile(opts, tandemRepeats, maxRepeatLength, openFile(i))
+
+    tandemRepeats = [tandemRepeatWithAlleles(i) for i in tandemRepeats]
+
+    # Put the repeats in descending order of a priority score
+    # Omit outliers from priority, unless the coverage seems low
+    coverages = [len(i[7]) for i in tandemRepeats if i[7]]
+    numOfOutliers = 1 if sum(coverages) >= 3 * len(coverages) else 0  # ?
+    sortKey = functools.partial(priorityScore, partScores, numOfOutliers)
+    tandemRepeats.sort(key=sortKey, reverse=True)
+
+    prog = "tandem-genotypes" if opts.output == 1 else "tandem-genotypes2"
+    out = "strand\tcount\tread_name"
+    print(out)
+
+    for tr in tandemRepeats:
+        chrom, beg, end, unit, geneInfo, small, large, copyNumberChanges = tr
+        if copyNumberChanges or opts.verbose > 1:
+            #fwd = (i for i in copyNumberChanges if i[0] != "-")
+            #rev = (i for i in copyNumberChanges if i[0] == "-")
+            #out = chrom, beg, end, unit, geneInfo[0], geneInfo[1]
+            #if opts.output == 2:
+            #    out += small, large
+            #out += changeText(opts, fwd), changeText(opts, rev)
+            for changes in copyNumberChanges:
+                out = changes[0], changes[1],changes[2]
+                print(*out, sep="\t")
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)  # avoid silly error message
+    usage = "%prog [options] microsat.txt alignments.maf"
+    description = "Try to indicate genotypes of tandem repeats."
+    op = optparse.OptionParser(usage=usage, description=description)
+    op.add_option("-g", "--genes", metavar="FILE",
+                  help="read genes from a genePred or BED file")
+    op.add_option("-o", "--output", type="int", default=1, metavar="NUM", help=
+                  "output format: 1=original, 2=alleles (default=%default)")
+    op.add_option("-m", "--mismap", type="float", default=1e-6, metavar="PROB",
+                  help="ignore any alignment with mismap probability > PROB "
+                  "(default=%default)")
+    op.add_option("--postmask", type="int", metavar="NUMBER", default=1, help=
+                  "ignore mostly-lowercase alignments (default=%default)")
+    op.add_option("-p", "--promoter", type="int", metavar="BP", default=300,
+                  help="promoter length (default=%default)")
+    op.add_option("-s", "--select", type="int", metavar="N", default=0, help=
+                  "select: all repeats (0), non-intergenic repeats (1), "
+                  "non-intergenic non-intronic repeats (2) (default=%default)")
+    op.add_option("-u", "--min-unit", type="int", default=2, metavar="BP",
+                  help="ignore repeats with unit shorter than BP "
+                  "(default=%default)")
+    op.add_option("-f", "--far", type="int", default=100, metavar="BP", help=
+                  "require alignment >= BP beyond both sides of a repeat "
+                  "(default=%default)")
+    op.add_option("-n", "--near", type="int", default=60, metavar="BP", help=
+                  "count insertions <= BP beyond a repeat (default=%default)")
+    op.add_option("--mode", default="L", metavar="LETTER",
+                  help="L=lenient, S=strict (default=%default)")
+    op.add_option("--scores", metavar="FILE",
+                  help="importance scores for gene parts")
+    op.add_option("-v", "--verbose", action="count", default=0,
+                  help="show more details")
+    opts, args = op.parse_args()
+    if not args:
+        op.error("please give me repeats and MAF alignments")
+    tandemGenotypes(opts, args)

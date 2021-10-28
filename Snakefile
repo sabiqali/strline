@@ -80,6 +80,14 @@ def get_strscore_config_for_sample(wildcards):
 def get_strique_index_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['strique_index']
 
+def get_microsat_file(wildcards):
+    #return config['microsat']
+    return get_data_type_config_for_sample(wildcards.sample)['microsat']
+
+def get_copy_number_for_sample(wildcards):
+    #return config['cn']
+    return get_data_type_config_for_sample(wildcards.sample)['cn']
+
 def get_graphaligner_mode_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['graphaligner_mode']
 
@@ -106,6 +114,45 @@ rule plots:
 #
 # Helpers
 #
+rule last_index:
+    input:
+        ref_file=get_ref_for_sample
+    output:
+        "{sample}_refdb"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "lastdb -P8 -uNEAR {output} {input.ref_file}"
+
+rule last_sg_rates:
+    input:
+        last_index_folder="{sample}_refdb",
+        reads_file=get_fastq_for_sample
+    output:
+        "{sample}.{basecall_config}.par"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "last-train -P8 -Q0 {input.last_index_folder} {input.reads_file} > {output}"
+
+rule last_align:
+    input:
+        last_index_folder="{sample}_refdb",
+        par_file="{sample}.{basecall_config}.par",
+        reads_file=get_fastq_for_sample
+    output:
+        "{sample}.{basecall_config}.maf"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "lastal -P8 -p {input.par_file} {input.last_index_folder} {input.reads_file} | last-split > {output}"
+
 rule split_index:
     input:
         index = get_sequencing_summary_for_sample
@@ -200,6 +247,38 @@ rule merge_reads:
     shell:
         "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
     
+#
+# Tandem Genotypes
+#
+rule tg_detect:
+    input:
+        alignment_file="{sample}.{basecall_config}.maf",
+        microsat_file=get_microsat_file
+    output:
+        "{sample}.{basecall_config}.tg.tsv"
+    threads:1
+    params:
+        script = srcdir("scripts/tandem-genotypes.py"),
+        memory_per_thread="8G",
+        extra_cluster_opt=""
+    shell:
+        "{params.script} {input.microsat_file} {input.alignment_file} > {output}"
+
+#rule tg_parse:
+#    input:
+#        tg_out="tandem_genotypes/{sample}.{basecall_config}.txt",
+#        config=get_repeat_config_for_sample,
+#        copy_number=get_copy_number_for_sample
+#    output:
+#        "{sample}.{basecall_config}.tg.tsv"
+#    threads:1
+#    params:
+#        script = srcdir("scripts/parse_tandem_genotypes.py"),
+#        memory_per_thread="1G",
+#        extra_cluster_opt=""
+#    shell:
+#        "{params.script} --input {input.tg_out} --config {input.config} --copy_number {input.copy_number} > {output}"
+
 #
 # GraphAligner
 #
