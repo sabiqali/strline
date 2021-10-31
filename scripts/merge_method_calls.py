@@ -37,6 +37,14 @@ def load_strscore(filename):
             out[row['read_name']] = STRCall(row['strand'], row['count'])
     return out
 
+def load_tg(filename):
+    out = dict()
+    with open(filename) as f:
+        reader = csv.DictReader(f, delimiter='\t')
+        for row in reader:
+            out[row['read_name']] = STRCall(row['strand'], row['count'])
+    return out
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--read-ids', required=False)
 args, input_files = parser.parse_known_args()
@@ -51,6 +59,8 @@ for f in input_files:
         data['strscore'] = load_strscore(f)
     elif f.endswith(".simplecount.tsv"):
         data['simplecount'] = load_strscore(f) # uses the same format
+    elif f.endswith(".tg.tsv"):
+        data['tg'] = load_tg(f) #same format as strscore
 
 all_reads = list()
 if args.read_ids is not None:

@@ -118,17 +118,29 @@ rule last_index:
     input:
         ref_file=get_ref_for_sample
     output:
-        "{sample}_refdb"
+        "{sample}_refdb.bck",
+        "{sample}_refdb.des",
+        "{sample}_refdb.prj",
+        "{sample}_refdb.sds",
+        "{sample}_refdb.ssp",
+        "{sample}_refdb.suf",
+        "{sample}_refdb.tis"
     threads: 1
     params:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "lastdb -P8 -uNEAR {output} {input.ref_file}"
+        "lastdb -P8 -uNEAR {wildcards.sample}_refdb {input.ref_file}"
 
 rule last_sg_rates:
     input:
-        last_index_folder="{sample}_refdb",
+        "{sample}_refdb.bck",
+        "{sample}_refdb.des",
+        "{sample}_refdb.prj",
+        "{sample}_refdb.sds",
+        "{sample}_refdb.ssp",
+        "{sample}_refdb.suf",
+        "{sample}_refdb.tis",
         reads_file=get_fastq_for_sample
     output:
         "{sample}.{basecall_config}.par"
@@ -137,11 +149,17 @@ rule last_sg_rates:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "last-train -P8 -Q0 {input.last_index_folder} {input.reads_file} > {output}"
+        "last-train -P8 -Q0 {wildcards.sample}_refdb {input.reads_file} > {output}"
 
 rule last_align:
     input:
-        last_index_folder="{sample}_refdb",
+        "{sample}_refdb.bck",
+        "{sample}_refdb.des",
+        "{sample}_refdb.prj",
+        "{sample}_refdb.sds",
+        "{sample}_refdb.ssp",
+        "{sample}_refdb.suf",
+        "{sample}_refdb.tis",
         par_file="{sample}.{basecall_config}.par",
         reads_file=get_fastq_for_sample
     output:
@@ -151,7 +169,7 @@ rule last_align:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "lastal -P8 -p {input.par_file} {input.last_index_folder} {input.reads_file} | last-split > {output}"
+        "lastal -P8 -p {input.par_file} {wildcards.sample}_refdb {input.reads_file} | last-split > {output}"
 
 rule split_index:
     input:
