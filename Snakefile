@@ -181,7 +181,7 @@ rule split_index:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "cut -f2 {input.index} | grep -v read_id | split -l {{config[reads_per_chunk]}} - splits/{wildcards.sample}.{wildcards.basecall_config}.index.split"
+        "cut -f2 {input.index} | grep -v read_id | split -l {config[strique_reads_per_chunk]} - splits/{wildcards.sample}.{wildcards.basecall_config}.index.split"
 
 rule subset_reads:
     input:
