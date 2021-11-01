@@ -181,7 +181,7 @@ rule split_index:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "cut -f2 {input.index} | grep -v read_id | split -l {config[reads_per_chunk]} - splits/{wildcards.sample}.{wildcards.basecall_config}.index.split"
+        "cut -f2 {input.index} | grep -v read_id | split -l {{config[reads_per_chunk]}} - splits/{wildcards.sample}.{wildcards.basecall_config}.index.split"
 
 rule subset_reads:
     input:
@@ -227,7 +227,7 @@ rule basecall_reads:
 	input:
 		fast5 = get_fast5_path
 	output:
-		dir="basecalled.{basecall_config}.{data_type}", ss="basecalled.{basecall_config}.{data_type}/sequencing_summary.txt"
+		dir=directory("basecalled.{basecall_config}.{data_type}"), ss="basecalled.{basecall_config}.{data_type}/sequencing_summary.txt"
 	threads: 8
 	params:
 		mode=get_guppy_mode,
