@@ -656,7 +656,7 @@ def tandemGenotypes(opts, args):
             #    out += small, large
             #out += changeText(opts, fwd), changeText(opts, rev)
             for changes in copyNumberChanges:
-                out = changes[0], changes[1],changes[2]
+                out = changes[0], str(int(changes[1]) + int(opts.cn)),changes[2]
                 print(*out, sep="\t")
 
 if __name__ == "__main__":
@@ -692,6 +692,8 @@ if __name__ == "__main__":
                   help="importance scores for gene parts")
     op.add_option("-v", "--verbose", action="count", default=0,
                   help="show more details")
+    op.add_option("--cn", default=0,
+                  help="copy number of the reference")
     opts, args = op.parse_args()
     if not args:
         op.error("please give me repeats and MAF alignments")

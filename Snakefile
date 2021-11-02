@@ -84,9 +84,9 @@ def get_microsat_file(wildcards):
     #return config['microsat']
     return get_data_type_config_for_sample(wildcards.sample)['microsat']
 
-def get_copy_number_for_sample(wildcards):
-    #return config['cn']
-    return get_data_type_config_for_sample(wildcards.sample)['cn']
+def get_copy_number(wildcards):
+    return config['cn']
+    #return get_data_type_config_for_sample(wildcards.sample)['cn']
 
 def get_graphaligner_mode_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['graphaligner_mode']
@@ -127,7 +127,7 @@ rule last_index:
         "{sample}_refdb.tis"
     threads: 1
     params:
-        memory_per_thread="1G",
+        memory_per_thread="8G",
         extra_cluster_opt=""
     shell:
         "lastdb -P8 -uNEAR {wildcards.sample}_refdb {input.ref_file}"
@@ -146,7 +146,7 @@ rule last_sg_rates:
         "{sample}.{basecall_config}.par"
     threads: 1
     params:
-        memory_per_thread="1G",
+        memory_per_thread="8G",
         extra_cluster_opt=""
     shell:
         "last-train -P8 -Q0 {wildcards.sample}_refdb {input.reads_file} > {output}"
@@ -166,7 +166,7 @@ rule last_align:
         "{sample}.{basecall_config}.maf"
     threads: 1
     params:
-        memory_per_thread="1G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
         "lastal -P8 -p {input.par_file} {wildcards.sample}_refdb {input.reads_file} | last-split > {output}"
@@ -276,11 +276,12 @@ rule tg_detect:
         "{sample}.{basecall_config}.tg.tsv"
     threads:1
     params:
+        copy_number=get_copy_number,
         script = srcdir("scripts/tandem-genotypes.py"),
-        memory_per_thread="8G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
-        "{params.script} {input.microsat_file} {input.alignment_file} > {output}"
+        "{params.script} {input.microsat_file} {input.alignment_file} --cn {params.copy_number} > {output}"
 
 #rule tg_parse:
 #    input:
