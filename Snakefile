@@ -36,6 +36,9 @@ def get_barcoded_dir(wildcards):
     dt = config[wildcards.sample]['data_type']
     return "barcoded." + wildcards.basecall_config + "." + dt + "/"
 
+def get_bonito_exec(wildcards):
+    return config['bonito']
+
 #
 # to support both singleplex and multiplex experiments this needs to be split
 # into a function that gets the root dir, and one that gets the subdir to make
@@ -60,7 +63,7 @@ def get_basecalled_subdir_for_sample(wildcards):
         return "barcode" + bc
 
 def get_sequencing_summary_for_sample(wildcards):
-    return get_basecalled_dir(wildcards) + "sequencing_summary.txt"
+    return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + "_summary.tsv"
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -264,7 +267,24 @@ rule merge_reads:
         subdir = get_basecalled_subdir_for_sample
     shell:
         "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
-    
+
+#
+# Bonito
+#
+rule bonito_basecall:
+    input:
+        fast5 = get_fast5_path
+    output:
+        fastq_out="fastq/{sample}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
+    threads: 8
+    params:
+        mode=get_guppy_mode,
+        bonito_exec=get_bonito_exec,
+        memory_per_thread="8G",
+        extra_cluster_opt="-q gpu.q -l gpu=2"
+    shell:
+        "{params.bonito_exec} basecaller {params.mode} {input.fast5} > {output.fastq_out}"
+ 
 #
 # Tandem Genotypes
 #
