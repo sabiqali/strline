@@ -29,19 +29,23 @@ with open(args.input) as f:
         read_id = fields[0].split(' ')[0] # remove FASTQ metadata that graphaligner emits
 
         tags = dict()
-        for t in fields[12:]:
-            (key, data_type, value) = t.split(":")
-            tags[key] = value
+        for t in fields[20:]:
+            try:
+                (key, data_type, value) = t.split(":")
+                tags[key] = value
+            except ValueError:
+                key = t.split(":")[0]
+                tags[key] = 0
 
         align_score = float(tags["AS"])
         identity = float(tags["id"])
 
-        query_len = int(fields[1])
-        query_start = int(fields[2])
-        query_end = int(fields[3])
+        query_len = int(fields[9])
+        query_start = int(fields[10])
+        query_end = int(fields[11])
         query_af = float(query_end - query_start) / float(query_len)
 
-        path_str = fields[5]
+        path_str = fields[13]
         path_dir = path_str[0]
         segments = path_str.split(path_dir)
         has_prefix = False
@@ -56,7 +60,7 @@ with open(args.input) as f:
             count += s.find("repeat") >= 0
 
         valid = has_prefix and has_suffix
-        strand = fields[4]
+        strand = fields[12]
         assert(strand == "+")
         if path_dir == "<":
             strand = "-"
