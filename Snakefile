@@ -226,54 +226,54 @@ rule bam_index:
 #
 # Basecaller
 #
-rule basecall_reads:
-	input:
-		fast5 = get_fast5_path
-	output:
-		dir=directory("basecalled.{basecall_config}.{data_type}"), ss="basecalled.{basecall_config}.{data_type}/sequencing_summary.txt"
-	threads: 8
-	params:
-		mode=get_guppy_mode,
-		guppy_location=get_guppy_basecaller,
-		guppy_extra_opt=get_guppy_extra_opt,
-		memory_per_thread="8G",
-		extra_cluster_opt="-q gpu.q -l gpu=2"
-	shell:
-		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output.dir} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
-
-rule demux_reads:
-	input:
-		"basecalled.{basecall_config}.{data_type}"
-	output:
-		directory("barcoded.{basecall_config}.{data_type}")
-	threads: 8
-	params:
-		guppy_location=get_guppy_barcoder,
-		barcoding_kit=get_barcoding_kit,
-		memory_per_thread="1G",
-		extra_cluster_opt="-q gpu.q -l gpu=2"
-	shell:
-		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type} -x 'cuda:0 cuda:1'"
-
-rule merge_reads:
-    input:
-        dir=get_basecalled_root_dir_for_sample
-    output:
-        "fastq/{sample}.{basecall_config}.fastq"
-    threads: 1
-    params:
-        memory_per_thread="1G",
-        extra_cluster_opt="",
-        subdir = get_basecalled_subdir_for_sample
-    shell:
-        "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
+#rule basecall_reads:
+#	input:
+#		fast5 = get_fast5_path
+#	output:
+#		dir=directory("basecalled.{basecall_config}.{data_type}"), ss="basecalled.{basecall_config}.{data_type}/sequencing_summary.txt"
+#	threads: 8
+#	params:
+#		mode=get_guppy_mode,
+#		guppy_location=get_guppy_basecaller,
+#		guppy_extra_opt=get_guppy_extra_opt,
+#		memory_per_thread="8G",
+#		extra_cluster_opt="-q gpu.q -l gpu=2"
+#	shell:
+#		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output.dir} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
+#
+#rule demux_reads:
+#	input:
+#		"basecalled.{basecall_config}.{data_type}"
+#	output:
+#		directory("barcoded.{basecall_config}.{data_type}")
+#	threads: 8
+#	params:
+#		guppy_location=get_guppy_barcoder,
+#		barcoding_kit=get_barcoding_kit,
+#		memory_per_thread="1G",
+#		extra_cluster_opt="-q gpu.q -l gpu=2"
+#	shell:
+#		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type} -x 'cuda:0 cuda:1'"
+#
+#rule merge_reads:
+#    input:
+#        dir=get_basecalled_root_dir_for_sample
+#    output:
+#        "fastq/{sample}.{basecall_config}.fastq"
+#    threads: 1
+#    params:
+#        memory_per_thread="1G",
+#        extra_cluster_opt="",
+#        subdir = get_basecalled_subdir_for_sample
+#    shell:
+#        "find {input.dir}/{params.subdir} -name \"*.fastq\" -exec cat {{}} + > {output}"
 
 #
 # Bonito
 #
 rule bonito_basecall:
     input:
-        fast5 = get_fast5_path
+        fast5 = get_raw_file_input_path
     output:
         fastq_out="fastq/{sample}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
     threads: 8
