@@ -236,7 +236,7 @@ rule basecall_reads:
 		memory_per_thread="8G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --num_callers 8 --input_path {input.fast5} --save_path {output.dir} -c dna_r9.4.1_450bps_{params.mode}.cfg {params.guppy_extra_opt} -x 'cuda:0 cuda:1'" 
+		"{params.guppy_location} --cpu_threads_per_caller 14 --num_callers 8 --input_path {input.fast5} --save_path {output.dir} -c dna_r9.4.1_450bps_{params.mode}.cfg" 
 
 rule demux_reads:
 	input:
@@ -250,7 +250,7 @@ rule demux_reads:
 		memory_per_thread="1G",
 		extra_cluster_opt="-q gpu.q -l gpu=2"
 	shell:
-		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type} -x 'cuda:0 cuda:1'"
+		"{params.guppy_location} --barcode_kits {params.barcoding_kit} --recursive -i {input} -s barcoded.{wildcards.basecall_config}.{wildcards.data_type}"
 
 rule merge_reads:
     input:
