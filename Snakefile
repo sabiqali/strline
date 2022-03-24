@@ -275,7 +275,7 @@ rule bonito_basecall:
     input:
         fast5 = get_raw_file_input_path
     output:
-        fastq_out="fastq/{sample}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
+        fastq_out="fastq/{data_type}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
     threads: 8
     params:
         mode=get_guppy_mode,
@@ -289,7 +289,7 @@ rule bonito_demux:
     input:
         "fastq/{sample}.{basecall_config}.fastq"
     output:
-        "fastq/{data_type}/{sample}"
+        "fastq/{data_type}/{basecall_config}/{sample}"
     threads: 8
     params:
         memory_per_thread="8G",
@@ -299,7 +299,7 @@ rule bonito_demux:
 
 rule move_reads:
     input:
-        "fastq/{data_type}/{sample}/" + get_sample_barcode
+        "fastq/{data_type}/{basecall_config}/{sample}/barcode" + get_barcode_id_for_sample + ".fastq"
     output:
         "fastq/{sample}.{basecall_config}.fastq"
     threads: 1
