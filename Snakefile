@@ -284,7 +284,30 @@ rule bonito_basecall:
         extra_cluster_opt="-q gpu.q -l gpu=2"
     shell:
         "{params.bonito_exec} basecaller {params.mode} {input.fast5} > {output.fastq_out}"
- 
+
+rule bonito_demux:
+    input:
+        "fastq/{sample}.{basecall_config}.fastq"
+    output:
+        "fastq/{data_type}/{sample}"
+    threads: 8
+    params:
+        memory_per_thread="8G",
+        extra_cluster_opt=""
+    shell:
+        "qcat -f {input} -b {output}"
+
+rule move_reads:
+    input:
+        "fastq/{data_type}/{sample}/" + get_sample_barcode
+    output:
+        "fastq/{sample}.{basecall_config}.fastq"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "mv {input} {output}" 
 #
 # Tandem Genotypes
 #
