@@ -47,12 +47,14 @@ def get_bonito_exec(wildcards):
 def get_basecalled_root_dir_for_sample(wildcards):
     dt = config[wildcards.sample]['data_type']
     bk = config[dt]['barcoding_kit']
+    bid = config[wildcards.sample]['barcode']
     # if barcoding is not enabled, merged all fastqs in the basecalled directory
     if bk == "none":
-        p = get_basecalled_dir(wildcards)
+        p = get_basecalled_dir(wildcards) + "basecalled.fastq"
     else:
         # barcoding enabled
-        p = get_barcoded_dir(wildcards)
+        p = get_barcoded_dir(wildcards) 
+        p = p + "barcode" + bid + ".fastq"
     return p
 
 def get_basecalled_subdir_for_sample(wildcards):
@@ -63,7 +65,7 @@ def get_basecalled_subdir_for_sample(wildcards):
         return "barcode" + bc
 
 def get_sequencing_summary_for_sample(wildcards):
-    return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + "_summary.tsv"
+    return get_basecalled_dir(wildcards) + "basecalled_summary.tsv"
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -275,7 +277,7 @@ rule bonito_basecall:
     input:
         fast5 = get_raw_file_input_path
     output:
-        fastq_out="fastq/{sample}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
+        fastq_out="basecalled.{basecall_config}.{data_type}/basecalled.fastq", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
     threads: 8
     params:
         mode=get_guppy_mode,
@@ -284,7 +286,30 @@ rule bonito_basecall:
         extra_cluster_opt="-q gpu.q -l gpu=2"
     shell:
         "{params.bonito_exec} basecaller {params.mode} {input.fast5} > {output.fastq_out}"
- 
+
+rule bonito_demux:
+    input:
+        "basecalled.{basecall_config}.{data_type}/basecalled.fastq"
+    output:
+        "barcoded.{basecall_config}.{data_type}"
+    threads: 8
+    params:
+        memory_per_thread="8G",
+        extra_cluster_opt=""
+    shell:
+        "qcat -f {input} -b {output}"
+
+rule move_reads:
+    input:
+        get_basecalled_root_dir_for_sample
+    output:
+        "fastq/{sample}.{basecall_config}.fastq"
+    threads: 1
+    params:
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "mv {input} {output}" 
 #
 # Tandem Genotypes
 #
