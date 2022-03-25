@@ -47,12 +47,14 @@ def get_bonito_exec(wildcards):
 def get_basecalled_root_dir_for_sample(wildcards):
     dt = config[wildcards.sample]['data_type']
     bk = config[dt]['barcoding_kit']
+    bid = config[wildcards.sample]['barcode']
     # if barcoding is not enabled, merged all fastqs in the basecalled directory
     if bk == "none":
         p = get_basecalled_dir(wildcards) + "basecalled.fastq"
     else:
         # barcoding enabled
-        p = get_barcoded_dir(wildcards) + "barcode" + str(get_barcode_id_for_sample) + ".fastq"
+        p = get_barcoded_dir(wildcards) 
+        p = p + "barcode" + bid + ".fastq"
     return p
 
 def get_basecalled_subdir_for_sample(wildcards):
