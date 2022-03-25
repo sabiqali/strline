@@ -303,7 +303,7 @@ rule bonito_demux:
     input:
         "basecalled.{basecall_config}.{data_type}/basecalled.fastq"
     output:
-        "barcoded.{basecall_config}.{data_type}"
+        directory("barcoded.{basecall_config}.{data_type}")
     threads: 8
     params:
         memory_per_thread="8G",
