@@ -1,0 +1,151 @@
+config_file:
+    /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/DMPK_CTG_long_flank_plasmids.tsv
+
+strique:
+    /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/STRique/scripts/STRique.py
+
+strique_pore_model:
+   /.mounts/labs/simpsonlab/users/jsimpson/projects/nanopore/2021.05.26.str_lengths/common/r9_4_450bps.model
+
+guppy5_fast:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "fast"
+    guppy_extra: ""
+
+guppy5_hac:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "hac"
+    guppy_extra: ""
+
+guppy5_super:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "sup"
+    guppy_extra: ""
+
+guppy5_hac_modbases:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "modbases_5mc_hac"
+    guppy_extra: ""
+
+guppy5_hac_modbases_as:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "modbases_5mc_hac"
+    guppy_extra: "--pt_scaling"
+
+guppy5_hac_as:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "hac"
+    guppy_extra: "--pt_scaling"
+
+guppy5_hac_cs5k:
+    path: "/.mounts/labs/ont/software/guppy-5.0.11/bin/"
+    mode: "hac"
+    guppy_extra: "--chunk_size 5000"
+
+basecall_configs: [ guppy5_fast, guppy5_hac, guppy5_super, guppy5_hac_modbases, guppy5_hac_modbases_as, guppy5_hac_as, guppy5_hac_cs5k  ]
+
+samples:
+    [ dmpk_cell_line_barcode06, c9orf72_singleplex ]
+
+strique_reads_per_chunk: 2000
+
+cn: 20
+microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/plasmid_repeat.txt
+
+plasmid:
+    reference: /.mounts/labs/simpsonlab/users/jsimpson/projects/nanopore/2021.05.26.str_lengths/common/plasmid_reference.fa
+    strscore_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/DMPK_CTG_plasmid.strique.tsv
+    strique_index: /.mounts/labs/simpsonlab/users/jsimpson/projects/nanopore/2021.05.26.str_lengths/common/index_fixed_small.fofn
+    repeat_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/DMPK_CTG_long_flank_plasmids_fixed.tsv
+    fast5: "/.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/fast5/"
+    barcoding_kit: "SQK-RBK004"
+    graphaligner_mode: "--multiseed-DP 1"
+    methods: [ "ga", "simplecount" , "tg", "strique" ]
+    maximum_length_for_plot: 100
+    cn: "20"
+    microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/plasmid_repeat.txt
+
+c9orf72_cell_line:
+    reference: /.mounts/labs/simpsonlab/data/references/GRCh38_no_alt_analysis_set.GCA_000001405.15.fna
+    strscore_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/c9orf72.strique.tsv
+    strique_index: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/index_c9orf72_cell_line.fofn
+    repeat_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/c9orf72_long_flanks.strique.tsv
+    fast5: "/.mounts/labs/simpsonlab/data/yuen_lab_str_project/2020-11-19_EBF2_C9orf72_MK/fast5/"
+    barcoding_kit: "EXP-NBD104"
+    graphaligner_mode: "--precise-clipping 0.502"
+    methods: [ "ga", "simplecount" , "tg", "strique" ]
+    maximum_length_for_plot: 1000
+    cn: "3"
+    microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/c9orf72_repeat.txt
+
+dmpk_cell_line:
+    reference: /.mounts/labs/simpsonlab/data/references/GRCh38_no_alt_analysis_set.GCA_000001405.15.fna
+    strscore_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/dmpk_ctg.strique.tsv
+    strique_index: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/index_dmpk_cell_line.fofn
+    repeat_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/dmpk_ctg_long_flanks.strique.tsv
+    fast5: "/.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-01-11_DMPK_1-1039/fast5/"
+    barcoding_kit: "EXP-NBD104"
+    graphaligner_mode: "--precise-clipping 0.502"
+    methods: [ "ga", "simplecount" , "tg", "strique" ]
+    maximum_length_for_plot: 1200
+    cn: "21"
+    microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/dmpk_repeat.txt
+
+c9orf72_cell_line_singleplex:
+    reference: /.mounts/labs/simpsonlab/data/references/GRCh38_no_alt_analysis_set.GCA_000001405.15.fna
+    strscore_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/c9orf72.strique.tsv
+    repeat_config: /.mounts/labs/simpsonlab/users/schaudhary/code/strview/configs/c9orf72_long_flanks.strique.tsv
+    strique_index: "none"
+    fast5: "/.mounts/labs/simpsonlab/data/yuen_lab_str_project/C9orf72_single_MK/fast5/"
+    barcoding_kit: "none"
+    graphaligner_mode: "--precise-clipping 0.502"
+    methods: [ "ga", "simplecount" , "tg", "strique" ]
+    maximum_length_for_plot: 1000
+    cn: "3"
+    microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/c9orf72_repeat.txt
+
+plasmid_barcode01:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode01.fastq
+    barcode: "01"
+    data_type: "plasmid"
+
+plasmid_barcode02:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode02.fastq
+    barcode: "02"
+    data_type: "plasmid"
+
+plasmid_barcode03:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode03.fastq
+    barcode: "03"
+    data_type: "plasmid"
+
+plasmid_barcode04:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode04.fastq
+    barcode: "04"
+    data_type: "plasmid"
+
+plasmid_barcode05:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode05.fastq
+    barcode: "05"
+    data_type: "plasmid"
+
+plasmid_barcode06:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-06-22_CAG-Plasmids/basecall/pass_barcode06.fastq
+    barcode: "06"
+    data_type: "plasmid"
+
+c9orf72_cell_line_barcode05:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2020-11-19_EBF2_C9orf72_MK/basecall_guppy-4.2.2_barcode05/pass_barcode05.fastq
+    barcode: "05"
+    data_type: "c9orf72_cell_line"
+
+dmpk_cell_line_barcode06:
+    fastq: /.mounts/labs/simpsonlab/data/yuen_lab_str_project/2021-01-11_DMPK_1-1039/basecall_barcode06/pass_barcode06.fastq
+    barcode: "06"
+    data_type: "dmpk_cell_line"
+
+c9orf72_singleplex:
+    fastq: "none"
+    barcode: "none"
+    data_type: "c9orf72_cell_line_singleplex"
+

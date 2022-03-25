@@ -49,10 +49,10 @@ def get_basecalled_root_dir_for_sample(wildcards):
     bk = config[dt]['barcoding_kit']
     # if barcoding is not enabled, merged all fastqs in the basecalled directory
     if bk == "none":
-        p = get_basecalled_dir(wildcards)
+        p = get_basecalled_dir(wildcards) + "basecalled.fastq"
     else:
         # barcoding enabled
-        p = get_barcoded_dir(wildcards)
+        p = get_barcoded_dir(wildcards) + "barcode" + str(get_barcode_id_for_sample) + ".fastq"
     return p
 
 def get_basecalled_subdir_for_sample(wildcards):
@@ -273,9 +273,9 @@ rule bam_index:
 #
 rule bonito_basecall:
     input:
-        fast5 = get_raw_file_input_path
+        fast5 = get_fast5_path
     output:
-        fastq_out="fastq/{data_type}.{basecall_config}.fastq", ss="fastq/{sample}.{basecall_config}_summary.tsv"
+        fastq_out="basecalled.{basecall_config}.{data_type}/basecalled.fastq", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
     threads: 8
     params:
         mode=get_guppy_mode,
@@ -287,9 +287,9 @@ rule bonito_basecall:
 
 rule bonito_demux:
     input:
-        "fastq/{sample}.{basecall_config}.fastq"
+        "basecalled.{basecall_config}.{data_type}/basecalled.fastq"
     output:
-        "fastq/{data_type}/{basecall_config}/{sample}"
+        "barcoded.{basecall_config}.{data_type}"
     threads: 8
     params:
         memory_per_thread="8G",
@@ -299,7 +299,7 @@ rule bonito_demux:
 
 rule move_reads:
     input:
-        "fastq/{data_type}/{basecall_config}/{sample}/barcode" + get_barcode_id_for_sample + ".fastq"
+        get_basecalled_root_dir_for_sample
     output:
         "fastq/{sample}.{basecall_config}.fastq"
     threads: 1
