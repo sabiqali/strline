@@ -45,12 +45,13 @@ guppy5_hac_cs5k:
 basecall_configs: [ guppy5_fast, guppy5_hac, guppy5_super, guppy5_hac_modbases, guppy5_hac_modbases_as, guppy5_hac_as, guppy5_hac_cs5k  ]
 
 samples:
-    [ dmpk_cell_line_barcode06, c9orf72_singleplex ]
+    [ c9orf72_singleplex ]
 
 strique_reads_per_chunk: 2000
 
 cn: 20
 microsat: /.mounts/labs/simpsonlab/users/schaudhary/projects/2020.11.STRDetection/plasmid_repeat.txt
+fast5: "/.mounts/labs/simpsonlab/data/yuen_lab_str_project/C9orf72_single_MK/fast5/"
 
 plasmid:
     reference: /.mounts/labs/simpsonlab/users/jsimpson/projects/nanopore/2021.05.26.str_lengths/common/plasmid_reference.fa

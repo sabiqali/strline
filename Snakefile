@@ -63,7 +63,7 @@ def get_basecalled_subdir_for_sample(wildcards):
         return "barcode" + bc
 
 def get_sequencing_summary_for_sample(wildcards):
-    return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + "_summary.tsv"
+    return get_basecalled_dir(wildcards) + "basecalled_summary.tsv"
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']
@@ -273,7 +273,7 @@ rule bam_index:
 #
 rule bonito_basecall:
     input:
-        fast5 = get_fast5_path
+        fast5 = get_raw_file_input_path
     output:
         fastq_out="basecalled.{basecall_config}.{data_type}/basecalled.fastq", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
     threads: 8
