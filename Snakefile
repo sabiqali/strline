@@ -54,7 +54,7 @@ def get_basecalled_root_dir_for_sample(wildcards):
     else:
         # barcoding enabled
         p = get_barcoded_dir(wildcards) 
-        p = p + "barcode" + bid + ".fastq"
+        #p = p + "barcode" + bid + ".fastq"
     return p
 
 def get_basecalled_subdir_for_sample(wildcards):
@@ -63,6 +63,18 @@ def get_basecalled_subdir_for_sample(wildcards):
         return ""
     else:
         return "barcode" + bc
+
+def get_filename_if_barcoded(wildcards):
+    dt = config[wildcards.sample]['data_type']
+    bk = config[dt]['barcoding_kit']
+    bid = config[wildcards.sample]['barcode']
+    if bk == "none":
+        p = ""
+    else:
+        # barcoding enabled
+        #p = get_barcoded_dir(wildcards)
+        p = "/barcode" + bid + ".fastq"
+    return p
 
 def get_sequencing_summary_for_sample(wildcards):
     return get_basecalled_dir(wildcards) + "basecalled_summary.tsv"
@@ -307,9 +319,11 @@ rule move_reads:
     threads: 1
     params:
         memory_per_thread="1G",
-        extra_cluster_opt=""
+        extra_cluster_opt="",
+	bid=get_barcode_id_for_sample,
+        bfile=get_filename_if_barcoded
     shell:
-        "mv {input} {output}" 
+        "mv {input}{params.bfile} {output}" 
 #
 # Tandem Genotypes
 #
