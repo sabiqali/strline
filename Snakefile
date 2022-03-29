@@ -287,7 +287,7 @@ rule bam_index:
 #
 rule bonito_basecall:
     input:
-        fast5 = get_raw_file_input_path
+        fast5 = get_fast5_path
     output:
         fastq_out="basecalled.{basecall_config}.{data_type}/basecalled.fastq", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
     threads: 8
