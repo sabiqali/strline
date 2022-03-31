@@ -142,9 +142,9 @@ rule last_index:
         "{sample}_refdb.ssp",
         "{sample}_refdb.suf",
         "{sample}_refdb.tis"
-    threads: 1
+    threads: 8
     params:
-        memory_per_thread="256G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
         "lastdb -P8 -uNEAR {wildcards.sample}_refdb {input.ref_file}"
@@ -161,9 +161,9 @@ rule last_sg_rates:
         reads_file=get_fastq_for_sample
     output:
         "{sample}.{basecall_config}.par"
-    threads: 1
+    threads: 8
     params:
-        memory_per_thread="256G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
         "last-train -P8 -Q0 {wildcards.sample}_refdb {input.reads_file} > {output}"
@@ -181,9 +181,9 @@ rule last_align:
         reads_file=get_fastq_for_sample
     output:
         "{sample}.{basecall_config}.maf"
-    threads: 1
+    threads: 8
     params:
-        memory_per_thread="256G",
+        memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
         "lastal -P8 -p {input.par_file} {wildcards.sample}_refdb {input.reads_file} | last-split > {output}"
