@@ -88,6 +88,9 @@ def get_data_type_config_for_sample(sample):
 def get_ref_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['reference']
 
+def get_ref(wildcards):
+    return config[wildcards.data_type]['reference']
+
 def get_repeat_config_for_sample(wildcards):
     return get_data_type_config_for_sample(wildcards.sample)['repeat_config']
 
@@ -295,7 +298,7 @@ rule bonito_basecall:
         mode=get_guppy_mode,
         bonito_exec=get_bonito_exec,
         modified_base="5mc",
-        ref=get_ref_for_sample,
+        ref=get_ref,
         memory_per_thread="8G",
         extra_cluster_opt="-q gpu.q -l gpu=2"
     shell:
