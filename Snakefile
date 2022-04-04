@@ -289,15 +289,29 @@ rule bonito_basecall:
     input:
         fast5 = get_fast5_path
     output:
-        fastq_out="basecalled.{basecall_config}.{data_type}/basecalled.fastq", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
+        bam_out="basecalled.{basecall_config}.{data_type}/basecalled.bam", ss="basecalled.{basecall_config}.{data_type}/basecalled_summary.tsv"
     threads: 8
     params:
         mode=get_guppy_mode,
         bonito_exec=get_bonito_exec,
+        modified_base="5mc",
+        ref=get_ref_for_sample,
         memory_per_thread="8G",
         extra_cluster_opt="-q gpu.q -l gpu=2"
     shell:
-        "{params.bonito_exec} basecaller {params.mode} {input.fast5} > {output.fastq_out}"
+        "{params.bonito_exec} basecaller {params.mode} --modified-bases {params.modified_base} --reference {params.ref} {input.fast5} > {output.bam_out}"
+
+rule bam_to_fastq:
+    input:
+        "basecalled.{basecall_config}.{data_type}/basecalled.bam"
+    output:
+        "basecalled.{basecall_config}.{data_type}/basecalled.fastq"
+    threads: 8
+    params:
+        memory_per_thread="8G",
+        extra_cluster_opt=""
+    shell:
+        "samtools fastq {input} > {output}"
 
 rule bonito_demux:
     input:
