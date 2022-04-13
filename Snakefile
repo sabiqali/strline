@@ -84,6 +84,9 @@ def get_microsat_file(wildcards):
     #return config['microsat']
     return get_data_type_config_for_sample(wildcards.sample)['microsat']
 
+def get_straglr_config(wildcards):
+    return get_data_type_config_for_sample(wildcards.sample)['straglr_config']
+
 def get_copy_number(wildcards):
     #return config['cn']
     return get_data_type_config_for_sample(wildcards.sample)['cn']
@@ -114,6 +117,31 @@ rule plots:
 #
 # Helpers
 #
+rule map_sample:
+    input:
+        reads_file=get_fastq_for_sample,
+        ref_file=get_ref_for_sample
+    output:
+        "alignments/{sample}.{basecall_config}.sorted.bam"
+    threads:1
+    params:
+        memory_per_thread="32G",
+        extra_cluster_opt=""
+    shell:
+        "minimap2 -ax map-ont {input.ref_file} {input.reads_file} | samtools sort -o {output}"
+
+rule index_mapped_sample:
+    input:
+        "alignments/{sample}.{basecall_config}.sorted.bam"
+    output:
+        "alignments/{sample}.{basecall_config}.sorted.bam.bai"
+    threads:1
+    params:
+        memory_per_thread="32G",
+        extra_cluster_opt=""
+    shell:
+        "samtools index {input}"
+
 rule last_index:
     input:
         ref_file=get_ref_for_sample
@@ -297,6 +325,38 @@ rule tg_detect:
 #        extra_cluster_opt=""
 #    shell:
 #        "{params.script} --input {input.tg_out} --config {input.config} --copy_number {input.copy_number} > {output}"
+
+#
+# Straglr
+#
+rule straglr_count:
+    input:
+        bam_in="alignments/{sample}.{basecall_config}.sorted.bam",
+        bam_index="alignments/{sample}.{basecall_config}.sorted.bam.bai",
+        ref_in=get_ref_for_sample
+    output:
+        "straglr/{sample}.{basecall_config}.straglr_scan.tsv"
+    threads:1
+    params:
+        straglr_config=get_straglr_config,
+        script = srcdir("scripts/straglr.py"),
+        memory_per_thread="32G",
+        extra_cluster_opt=""
+    shell:
+        "{params.script} {input.bam_in} {input.ref_in} {sample}.{basecall_config}.straglr_scan --min_str_len 2 --max_str_len 100 --genotype_in_size --min_ins_size 30 --loci {params.straglr_config}"
+
+rule straglr_parse:
+    input:
+        "straglr/{sample}.{basecall_config}.straglr_scan.tsv"
+    output:
+        "{sample}.{basecall_config}.straglr.tsv"
+    threads:1
+    params:
+        script = srcdir("scripts/parse_straglr.py"),
+        memory_per_thread="1G",
+        extra_cluster_opt=""
+    shell:
+        "{params.script} --input {input} > {output}"
 
 #
 # GraphAligner
