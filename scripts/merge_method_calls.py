@@ -70,7 +70,7 @@ for f in input_files:
     elif f.endswith(".tg.tsv"):
         data['tg'] = load_tg(f) #same format as strscore
     elif f.endswith(".straglr.tsv"):
-        data['strscore'] = load_straglr(f)
+        data['straglr'] = load_straglr(f)
 
 all_reads = list()
 if args.read_ids is not None:

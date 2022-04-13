@@ -119,25 +119,25 @@ rule plots:
 #
 rule map_sample:
     input:
-        reads_file=get_fastq_for_sample,
-        ref_file=get_ref_for_sample
+        reads=get_fastq_for_sample,
+        ref=get_ref_for_sample
     output:
-        "alignments/{sample}.{basecall_config}.sorted.bam"
-    threads:1
+        "alignments/{sample}.{basecall_config}.sorted.bam",
+    threads:8
     params:
-        memory_per_thread="32G",
+        memory_per_thread="8G",
         extra_cluster_opt=""
     shell:
-        "minimap2 -ax map-ont {input.ref_file} {input.reads_file} | samtools sort -o {output}"
+        "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample} > {output}"
 
 rule index_mapped_sample:
     input:
-        "alignments/{sample}.{basecall_config}.sorted.bam"
+        "alignments/{prefix}.sorted.bam"
     output:
-        "alignments/{sample}.{basecall_config}.sorted.bam.bai"
+        "alignments/{prefix}.sorted.bam.bai"
     threads:1
     params:
-        memory_per_thread="32G",
+        memory_per_thread="2G",
         extra_cluster_opt=""
     shell:
         "samtools index {input}"
@@ -237,17 +237,17 @@ rule map_split:
     shell:
          "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample} > {output}"
 
-rule bam_index:
-    input:
-        "{prefix}.bam"
-    output:
-        "{prefix}.bam.bai"
-    threads: 1
-    params:
-        memory_per_thread="2G",
-        extra_cluster_opt=""
-    shell:
-         "samtools index {input}"
+#rule bam_index:
+#    input:
+#        "{prefix}.bam"
+#    output:
+#        "{prefix}.bam.bai"
+#    threads: 1
+#    params:
+#        memory_per_thread="2G",
+#        extra_cluster_opt=""
+#    shell:
+#         "samtools index {input}"
 #
 # Basecaller
 #
@@ -343,11 +343,11 @@ rule straglr_count:
         memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
-        "{params.script} {input.bam_in} {input.ref_in} {sample}.{basecall_config}.straglr_scan --min_str_len 2 --max_str_len 100 --genotype_in_size --min_ins_size 30 --loci {params.straglr_config}"
+        "python {params.script} {input.bam_in} {input.ref_in} straglr/{wildcards.sample}.{wildcards.basecall_config}.straglr_scan --min_str_len 2 --max_str_len 100 --genotype_in_size --min_ins_size 30 --loci {params.straglr_config}"
 
 rule straglr_parse:
     input:
-        "straglr/{sample}.{basecall_config}.straglr_scan.tsv"
+        scan_in="straglr/{sample}.{basecall_config}.straglr_scan.tsv"
     output:
         "{sample}.{basecall_config}.straglr.tsv"
     threads:1
@@ -356,7 +356,7 @@ rule straglr_parse:
         memory_per_thread="1G",
         extra_cluster_opt=""
     shell:
-        "{params.script} --input {input} > {output}"
+        "python {params.script} --input {input.scan_in} > {output}"
 
 #
 # GraphAligner
