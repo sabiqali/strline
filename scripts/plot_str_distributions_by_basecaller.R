@@ -18,7 +18,7 @@ args <- parser$parse_args()
 # load data
 data <- do.call(rbind, lapply(args$input, load))
 
-reshaped <- data %>% tidyr::gather(method, count, graphaligner, simplecount, tg, straglr)
+reshaped <- data %>% tidyr::gather(method, count, graphaligner, simplecount, tg, straglr, strique)
 bw = args$maximum_length / 50
 p <- ggplot(reshaped, aes(count, fill=strand)) + 
   geom_histogram(binwidth=bw, position="identity", alpha=0.5) + 

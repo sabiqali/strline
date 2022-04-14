@@ -237,17 +237,17 @@ rule map_split:
     shell:
          "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample} > {output}"
 
-#rule bam_index:
-#    input:
-#        "{prefix}.bam"
-#    output:
-#        "{prefix}.bam.bai"
-#    threads: 1
-#    params:
-#        memory_per_thread="2G",
-#        extra_cluster_opt=""
-#    shell:
-#         "samtools index {input}"
+rule bam_index:
+    input:
+        "splits/{prefix}.bam"
+    output:
+        "splits/{prefix}.bam.bai"
+    threads: 1
+    params:
+        memory_per_thread="2G",
+        extra_cluster_opt=""
+    shell:
+         "samtools index {input}"
 #
 # Basecaller
 #
