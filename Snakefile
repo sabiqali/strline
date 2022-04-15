@@ -39,6 +39,9 @@ def get_barcoded_dir(wildcards):
 def get_bonito_exec(wildcards):
     return config['bonito']
 
+def get_workflow_conda_env(wildcards):
+    return config['strline_env']
+
 #
 # to support both singleplex and multiplex experiments this needs to be split
 # into a function that gets the root dir, and one that gets the subdir to make
@@ -398,11 +401,12 @@ rule straglr_count:
     threads:1
     params:
         straglr_config=get_straglr_config,
+	workflow_dir=get_workflow_conda_env,
         script = srcdir("scripts/straglr.py"),
         memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
-        "python {params.script} {input.bam_in} {input.ref_in} straglr/{wildcards.sample}.{wildcards.basecall_config}.straglr_scan --min_str_len 2 --max_str_len 100 --genotype_in_size --min_ins_size 30 --loci {params.straglr_config}"
+        "{params.workflow_dir}/bin/python {params.script} {input.bam_in} {input.ref_in} straglr/{wildcards.sample}.{wildcards.basecall_config}.straglr_scan --min_str_len 2 --max_str_len 100 --genotype_in_size --min_ins_size 30 --loci {params.straglr_config}"
 
 rule straglr_parse:
     input:
