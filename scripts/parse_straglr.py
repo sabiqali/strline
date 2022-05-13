@@ -18,6 +18,6 @@ header2 = f.readline()
 header3 = f.readline()
 #with open(args.input) as f:
 for record in f:
-    chromosome,start,end,repeat_unit,genotype,read,cn,size,read_start,allele = record.rstrip().split("\t")
+    chromosome,start,end,repeat_unit,genotype,read,cn,size,read_start,strand,allele = record.rstrip().split("\t")
     #print(read)
-    print("%s\t+\t%s" % (read, int(float(cn))))
+    print("%s\t%s\t%s" % (read, strand, int(float(cn))))
