@@ -1,6 +1,8 @@
 # Strline
 Software pipeline to analyse STR loci from long read data. Strline can count the number of repeats in a repeat expansion, as well as compare it to other state-of-the-art repeat counting packages, to give you an analyses of per basecaller accuracy. Or, simply give you the count in a tabular format for further downstream analysis.
 
+![Strline-flowchart](https://user-images.githubusercontent.com/39552869/168863661-9b8a9cd0-1a53-40a2-a805-82aeaed1a5bc.jpg)
+
 ## Release notes
 * 0.1.0: Initial release with all the methods operating on all the all the different basecallers. Different methods and basecallers can be toggled on or off depending on need.
 
