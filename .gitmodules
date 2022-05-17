@@ -1,0 +1,3 @@
+[submodule "scripts/straglr"]
+	path = scripts/straglr
+	url = https://github.com/bcgsc/straglr.git
