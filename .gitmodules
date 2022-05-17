@@ -1,3 +1,6 @@
 [submodule "scripts/straglr"]
 	path = scripts/straglr
 	url = https://github.com/bcgsc/straglr.git
+[submodule "scripts/STRique"]
+	path = scripts/STRique
+	url = https://github.com/giesselmann/STRique.git
