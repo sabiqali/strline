@@ -1,0 +1,85 @@
+strique:
+    /path/to/cloned/repo/strline/scripts/STRique/scripts/STRique.py
+
+strique_pore_model:
+   /path/to/pore/model/for/strique
+
+bonito:
+   /path/to/bonito/executable
+
+strline_env:
+   /path/to/conda/folder/envs/strline
+
+straglr_dir:
+   /path/to/cloned/repo/strline/scripts/straglr/straglr.py
+
+guppy5_fast:
+    path: "/path/to/guppy/executable"
+    mode: "fast"
+    guppy_extra: ""
+
+guppy5_hac:
+    path: "/path/to/guppy/executable"
+    mode: "hac"
+    guppy_extra: ""
+
+guppy5_super:
+    path: "/path/to/guppy/executable"
+    mode: "sup"
+    guppy_extra: ""
+
+guppy5_hac_modbases:
+    path: "/path/to/guppy/executable"
+    mode: "modbases_5mc_hac"
+    guppy_extra: ""
+
+guppy5_hac_modbases_as:
+    path: "/path/to/guppy/executable"
+    mode: "modbases_5mc_hac"
+    guppy_extra: "--pt_scaling"
+
+guppy5_hac_as:
+    path: "/path/to/guppy/executable"
+    mode: "hac"
+    guppy_extra: "--pt_scaling"
+
+guppy5_hac_cs5k:
+    path: "/path/to/guppy/executable"
+    mode: "hac"
+    guppy_extra: "--chunk_size 5000"
+
+bonito_fast:
+    mode: "dna_r9.4.1_e8.1_fast@v3.4"
+
+bonito_hac:
+    mode: "dna_r9.4.1_e8.1_hac@v3.3"
+
+bonito_super:
+    mode: "dna_r9.4.1_e8.1_sup@v3.3"
+
+#choose from the above basecall configs. for better results, run bonito and guppy separately.
+basecall_configs: [ <basecall_configs_you_want_to_test> ]
+
+#this sample name should match the sample name described later in this config file
+samples:
+    [ <sample_name> ]
+
+strique_reads_per_chunk: 2000 #chunks in which to process reads using strique. the smaller this number the quicker STRique performs but the more number of times it will have to be called. 
+
+sample_data_type:
+    reference: /path/to/reference/genome
+    repeat_config: /path/to/repeat/config #repeat config needed by our method and STRique. please refer to configs if unsure.
+    fast5: "/path/to/fast5/folder" #folder where all the raw sequence data is stored.
+    barcoding_kit: "<barcoding kit(if any, if none, put none)" #barcoding kit details if any have been used. eg SQK-RBK004
+    graphaligner_mode: "<graphaligner mode>(recommeded: --multiseed-DP 1 for plasmid(very high coverage), and --precise-clipping 0.502 for cell line(lower coverage)"
+    methods: [ <methods> ] #options include: "ga","strique","simplecount","straglr","tg","strscore"
+    maximum_length_for_plot: <max repeat length for plots> #the counts will be cutoff at this length. please make sure this is larger than your expected max count, if unsure, leave as a large number and then reduce if needed
+    cn: <copy number of repeats in reference genome> #please provide the copy number as in the reference genome for the locus in question. eg. 3 for c9orf72.
+    microsat: /path/to/microsat/file/needed/by/tg #please provide microsat file as needed by tandem-genotypes. please check configs folder if unsure
+    straglr_config: /path/to/config/file/needed/by/straglr #must match straglr config type. please check configs folder if unsure of format.
+    sequencing_summary: /path/to/sequencing/summary #needed if providing your own fastq
+
+sample_name:
+    fastq: /path/to/fastq/ #in case you do not want to basecall and want to supply your own fastq, if you do this, you need to supply a sequencing summary as well in the corresponding data_type
+    barcode: "<barcode number>" #barcode number is barcoded, else leave blank as ""
+    data_type: "<sample_data_type>" #corresponding data type of the sample
