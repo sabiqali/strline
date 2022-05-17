@@ -405,7 +405,7 @@ rule straglr_count:
     params:
         straglr_config=get_straglr_config,
 	workflow_dir=get_workflow_conda_env,
-        script = srcdir("scripts/straglr.py"),
+        script = get_straglr_dir,
         memory_per_thread="32G",
         extra_cluster_opt=""
     shell:
