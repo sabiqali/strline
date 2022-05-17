@@ -42,6 +42,9 @@ def get_bonito_exec(wildcards):
 def get_workflow_conda_env(wildcards):
     return config['strline_env']
 
+def get_straglr_dir(wildcards):
+    return config['straglr_dir']
+
 #
 # to support both singleplex and multiplex experiments this needs to be split
 # into a function that gets the root dir, and one that gets the subdir to make
