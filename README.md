@@ -54,7 +54,7 @@ The config file template should be downloaded along with the repository. Please 
 
 ### Running the pipeline singularly
 
-Copy the `Snakefile` and `config.yaml` files to the directory that you want to run the workflow. If you want to basecall the reads, please make sure you are on a computer with the GPU accessible and run the following:
+Copy the `config.yaml` file to the directory that you want to run the workflow. If you want to basecall the reads, please make sure you are on a computer with the GPU accessible and run the following:
 
 ```
 snakemake -s /path/to/snakefile --rerun-incomplete --keep-going --latency-wait 60 --cores <specify_number_cores(1 if unsure)> plots
@@ -62,7 +62,7 @@ snakemake -s /path/to/snakefile --rerun-incomplete --keep-going --latency-wait 6
 
 ### Running the pipeline on a cluster/grid engine
 
-Copy the `Snakefile` and `config.yaml` files to the directory that you want to run the workflow. There are a few different grid engines, so the exact format to run the workflow may be different for your particular grid engine:
+Copy the `config.yaml` file to the directory that you want to run the workflow. There are a few different grid engines, so the exact format to run the workflow may be different for your particular grid engine:
 
 ```
 snakemake --rerun-incomplete -s /path/to/snakefile --keep-going --jobs 500 --latency-wait 120 --cluster "qsub -cwd -V -o snakemake_all.output.log -e snakemake_all.error.log -N {rule} -pe smp {threads} -l h_vmem={params.memory_per_thread} {params.extra_cluster_opt} -l h_stack=32M -P <project_name> -b y" plots
