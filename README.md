@@ -34,8 +34,15 @@ Please make sure that you have `trf` and `blast` in your `$PATH`, to make sure t
 You can download latest code from github and install all dependencies except aforementioned ones as follows:
 
 ```
+#clones the repository
 git clone --recursive https://github.com/sabiqali/strline.git
+
+#makes sure that the submodules have been initialised
+git submodule update --init --recursive
+
 cd strline
+
+#install required packages and create a conda env
 conda env create -n strline --file strline.yml
 ```
 
