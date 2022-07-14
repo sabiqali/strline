@@ -1,7 +1,10 @@
 import os
 
 def get_fastq_for_sample(wildcards):
-    return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + ".fastq"
+    if config[wildcards.sample]['fastq'] == "none":
+        return "fastq/" + wildcards.sample + "." + wildcards.basecall_config + ".fastq"
+    else:
+        return config[wildcards.sample]['fastq']
 
 def get_raw_file_input_path(wildcards):
     return config['fast5']
@@ -83,7 +86,10 @@ def get_filename_if_barcoded(wildcards):
     return p
 
 def get_sequencing_summary_for_sample(wildcards):
-    return get_basecalled_dir(wildcards) + "basecalled_summary.tsv"
+    if config[wildcards.sample]['fastq'] == "none":
+        return get_basecalled_dir(wildcards) + "basecalled_summary.tsv"
+    else:
+        return config[wildcards.sample]['summary']
 
 def get_barcode_id_for_sample(wildcards):
     return config[wildcards.sample]['barcode']

@@ -80,6 +80,7 @@ sample_data_type:
     sequencing_summary: /path/to/sequencing/summary #needed if providing your own fastq
 
 sample_name:
-    fastq: /path/to/fastq/ #in case you do not want to basecall and want to supply your own fastq, if you do this, you need to supply a sequencing summary as well in the corresponding data_type
+    fastq: "/path/to/fastq.fastq" #in case you do not want to basecall and want to supply your own fastq, if you do this, you need to supply a sequencing summary as well in the corresponding data_type
     barcode: "<barcode number>" #barcode number is barcoded, else leave blank as ""
     data_type: "<sample_data_type>" #corresponding data type of the sample
+    summary: /path/to/sequencing/summary/file.txt #in case you do not want to basecall, you MUST provide a sequencing summary else the pipeline WILL basecall
