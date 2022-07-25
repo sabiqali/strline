@@ -160,7 +160,7 @@ rule map_sample:
         memory_per_thread="8G",
         extra_cluster_opt=""
     shell:
-        "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample} > {output}"
+        "minimap2 -ax map-ont -t {threads} {input.ref} {input.reads} | samtools sort -T {wildcards.sample}.{wildcards.basecall_config} > {output}"
 
 rule index_mapped_sample:
     input:
